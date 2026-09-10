@@ -1,11 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./Prices.css";
+import PriceCarousel, { useCarouselLayout } from "./PriceCarousel";
 
 // Replace these icon imports with your actual icon paths:
 import goldIcon from "./icons/gold-icon.png";
 import silverIcon from "./icons/silver-icon.png";
 import platinumIcon from "./icons/platinum-icon.png";
 import palladiumIcon from "./icons/palladium-icon.png";
+
+// The four metals, in banner order.
+const METALS = [
+  { symbol: "USDXAU", name: "Gold", icon: goldIcon },
+  { symbol: "USDXAG", name: "Silver", icon: silverIcon },
+  { symbol: "USDXPT", name: "Platinum", icon: platinumIcon },
+  { symbol: "USDXPD", name: "Palladium", icon: palladiumIcon },
+];
+
+// Narrow screens show two metals at a time (indexes into METALS).
+const PAIRS = [
+  [0, 1], // Gold + Silver
+  [2, 3], // Platinum + Palladium
+];
 
 const Prices = () => {
   const [prices, setPrices] = useState(null);            // Today’s prices
@@ -78,8 +93,25 @@ const Prices = () => {
     return `${sign}${difference.toFixed(2)} (${sign}${percentChange.toFixed(2)}%)`;
   };
 
+  // One metal: icon, name, price and the change since yesterday.
+  const renderMetal = ({ symbol, name, icon }) => {
+    const change = getChangeData(symbol, symbol);
+    return (
+      <div className="metalItem" key={symbol}>
+        <img src={icon} alt={`${name} icon`} className="metalIcon" />
+        <span className="metalName">{name}</span>
+        <span className="price">${prices[symbol]?.toFixed(2)}</span>
+        <span className={getClassName(change?.difference)}>{formatChange(change)}</span>
+      </div>
+    );
+  };
+
+  // Wide screens show one row; when it doesn't fit, a carousel of pairs.
+  const bannerRef = useRef(null);
+  const layout = useCarouselLayout(bannerRef);
+
   return (
-    <div className="banner">
+    <div className={layout.carousel ? "banner bannerCarousel" : "banner"} ref={bannerRef}>
       {error && <span className="errorMsg">Error: {error}</span>}
 
       {!error && (!prices || !yesterdayPrices) && (
@@ -88,53 +120,14 @@ const Prices = () => {
 
       {!error && prices && yesterdayPrices && (
         <>
-          {/* GOLD */}
-          <div className="metalItem">
-            <img src={goldIcon} alt="Gold icon" className="metalIcon" />
-            <span className="metalName">Gold</span>
-            <span className="price">${prices.USDXAU?.toFixed(2)}</span>
-            <span
-              className={getClassName(getChangeData("USDXAU", "USDXAU")?.difference)}
-            >
-              {formatChange(getChangeData("USDXAU", "USDXAU"))}
-            </span>
-          </div>
+          {METALS.map(renderMetal)}
 
-          {/* SILVER */}
-          <div className="metalItem">
-            <img src={silverIcon} alt="Silver icon" className="metalIcon" />
-            <span className="metalName">Silver</span>
-            <span className="price">${prices.USDXAG?.toFixed(2)}</span>
-            <span
-              className={getClassName(getChangeData("USDXAG", "USDXAG")?.difference)}
-            >
-              {formatChange(getChangeData("USDXAG", "USDXAG"))}
-            </span>
-          </div>
-
-          {/* PLATINUM */}
-          <div className="metalItem">
-            <img src={platinumIcon} alt="Platinum icon" className="metalIcon" />
-            <span className="metalName">Platinum</span>
-            <span className="price">${prices.USDXPT?.toFixed(2)}</span>
-            <span
-              className={getClassName(getChangeData("USDXPT", "USDXPT")?.difference)}
-            >
-              {formatChange(getChangeData("USDXPT", "USDXPT"))}
-            </span>
-          </div>
-
-          {/* PALLADIUM */}
-          <div className="metalItem">
-            <img src={palladiumIcon} alt="Palladium icon" className="metalIcon" />
-            <span className="metalName">Palladium</span>
-            <span className="price">${prices.USDXPD?.toFixed(2)}</span>
-            <span
-              className={getClassName(getChangeData("USDXPD", "USDXPD")?.difference)}
-            >
-              {formatChange(getChangeData("USDXPD", "USDXPD"))}
-            </span>
-          </div>
+          {layout.carousel && (
+            <PriceCarousel
+              slides={PAIRS.map((pair) => pair.map((i) => renderMetal(METALS[i])))}
+              scale={layout.scale}
+            />
+          )}
         </>
       )}
     </div>

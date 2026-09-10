@@ -2,7 +2,7 @@
   "name": "banner",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://thegldstandard.github.io/banner/",
+  "homepage": "https://tgs-game.github.io/banner/",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

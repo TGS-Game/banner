@@ -9,11 +9,25 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 ## Stack
 
 - Create React App (`react-scripts` 5), React 18. No backend, no database.
-- One real component: `src/components/prices.js` (+ `Prices.css`, `icons/`).
-  `src/App.js` just renders it. `public/style.css` holds global styles.
+- Two components in `src/components/`: `prices.js` (fetching and the one-row
+  banner; + `Prices.css`, `icons/`) and `PriceCarousel.js` (the narrow-screen
+  carousel). `src/App.js` just renders `Prices`. `public/style.css` holds global styles.
 - Data comes from `https://api.metalpriceapi.com/v1/...`, called **directly from
   the browser**. On `main` it fetches `latest` plus yesterday's historical rates,
   so each refresh makes 2 API calls.
+
+## Layout: row vs carousel
+
+- Wide screens show the original one-row banner, 24px tall. When the four metals
+  don't fit on one row (measured at runtime; about 1048px with typical prices), it
+  switches to a carousel of two metals at a time: Gold + Silver, then Platinum +
+  Palladium, sliding left on a loop. With "reduce motion" on, the pairs fade.
+- In a frame at most 768px wide and at least 80px tall (thegoldstandard.com's phone
+  iframe is 80px tall at 768px and below) the carousel is 80px with larger text;
+  otherwise it is 24px.
+- Settings: `CAROUSEL_HOLD_MS` (6000) and `CAROUSEL_TRANSITION_MS` (700) at the top
+  of `PriceCarousel.js`; the pairs are `PAIRS` in `prices.js`; the 80px phone sizes
+  are section 4) of `Prices.css`.
 
 ## Branches: work on `main`
 
@@ -50,9 +64,10 @@ npm test          # jest (watch mode)
   origin**. GitHub Pages (legacy mode, source `gh-pages` /) serves it at
   **https://tgs-game.github.io/banner/**. That is the live site.
 - Never run `npm run deploy` or push to `gh-pages` without explicit approval.
-- `homepage` in package.json still says `https://thegldstandard.github.io/banner/`.
-  Asset paths resolve to `/banner/`, so the build still works on the new URL, but
-  the old URL now returns 404. Anything embedding the old URL is broken.
+- `homepage` in package.json is `https://tgs-game.github.io/banner/`, so asset
+  paths resolve to `/banner/`. The old URL `https://thegldstandard.github.io/banner/`
+  returns 404, and thegoldstandard.com's iframe still points at it (checked
+  2026-09-10), so the site shows no banner until that iframe's `src` is updated.
 - This machine has `core.autocrlf=true`, so files copied from `public/` (e.g.
   `style.css`) get CRLF line endings in local builds. The content is identical,
   but a deploy from here would change those files' bytes.

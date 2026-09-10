@@ -67,21 +67,99 @@
   font-family: 'League Spartan', sans-serif;
 }
 
-/* Mobile responsiveness for screens <= 600px */
-@media (max-width: 600px) {
+/* 3) Narrow screens: when the four metals no longer fit on one row, the row
+   is swapped for a carousel showing two at a time (PriceCarousel.js measures
+   the row). The banner keeps the same height. */
+.bannerCarousel {
+  box-sizing: border-box; /* keep the carousel within the page width */
+}
+
+/* The row stays in the page, invisible, so it can still be measured */
+.bannerCarousel > .metalItem {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.carousel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.carouselTrack {
+  display: flex;
+}
+
+.carouselSlide {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+/* Two metals, spread evenly; scaled down on small phones so both fit */
+.carouselPair {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  transform-origin: 0 50%;
+}
+.carouselPair > .metalItem {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* "Reduce motion": the pairs are stacked and fade instead of sliding */
+@media (prefers-reduced-motion: reduce) {
+  .carouselTrack {
+    display: grid;
+  }
+  .carouselSlide {
+    grid-area: 1 / 1;
+  }
+  .carouselCopy {
+    display: none;
+  }
+}
+
+/* 4) Phones: on thegoldstandard.com the banner's iframe is 80px tall at 768px
+   and below, so the banner fills that height and each metal is stacked on
+   three larger lines. min-height keeps this out of the 20px desktop frame. */
+@media (max-width: 768px) and (min-height: 80px) {
   .banner {
-    flex-wrap: wrap;
-    justify-content: center;
-    font-size: 10px;  /* Slightly smaller text on mobile */
-    padding: 0.5rem;
+    box-sizing: border-box;
+    height: 80px;
   }
-  .metalItem {
-    flex-direction: column;
-    text-align: center;
-    margin-bottom: 0.5rem;
+  .carouselPair > .metalItem {
+    display: grid;
+    grid-template-columns: 1fr auto auto 1fr;
+    grid-template-areas:
+      ". icon name ."
+      "price price price price"
+      "change change change change";
+    align-items: center;
+    justify-items: center;
+    row-gap: 3px;
   }
-  .metalIcon {
-    width: 20px;
-    height: 20px;
+  .carouselPair .metalIcon {
+    grid-area: icon;
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+  }
+  .carouselPair .metalName {
+    grid-area: name;
+    font-size: 17px;
+    line-height: 1.1;
+  }
+  .carouselPair .price {
+    grid-area: price;
+    font-size: 22px;
+    line-height: 1.05;
+  }
+  .carouselPair .metalItem > :last-child {
+    grid-area: change;
+    font-size: 15px;
+    line-height: 1.15;
   }
 }
