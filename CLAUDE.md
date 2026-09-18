@@ -84,8 +84,10 @@ npm test          # jest (watch mode)
   returns 404, and thegoldstandard.com's iframe still points at it (checked
   2026-09-10), so the site shows no banner until that iframe's `src` is updated.
 - This machine has `core.autocrlf=true`, so files copied from `public/` (e.g.
-  `style.css`) get CRLF line endings in local builds. The content is identical,
-  but a deploy from here would change those files' bytes.
+  `style.css`) get CRLF line endings in local builds. That doesn't reach the
+  live site: `gh-pages` commits through git, which converts them back to LF on
+  commit, so a deploy from here does not change `style.css`'s bytes (verified
+  on the 2026-09-18 deploy, `gh-pages` `1353be1`).
 - Not deployed on Railway. The folder is not `railway link`ed. Don't link it or
   set Railway variables.
 
