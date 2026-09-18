@@ -49,9 +49,11 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 
 ## Branches: work on `main`
 
-- **`main` is the live branch.** Deployed 2026-09-18 from `main` at the commit
-  that added this note (one-metal phone layout): live serves `main.9740394e.js`,
-  `main.2ffbd2cd.css` and `453.df2d0003.chunk.js`. History: 2026-09-10 `gh-pages`
+- **`main` is the live branch.** Deployed 2026-09-18: `gh-pages` `eb71b14` =
+  build of `9abaeb7` (40px phone pairs): live serves `main.fa2023fd.js`,
+  `main.22f1760a.css` and `453.df2d0003.chunk.js`. History: earlier 2026-09-18
+  `gh-pages` `1353be1` = build of `1fe617e` (one-metal phone layout;
+  `main.9740394e.js`, `main.2ffbd2cd.css`); 2026-09-10 `gh-pages`
   `29c7c71` = build of `a290afe` (carousel; `main.02a3d7bd.js`,
   `main.563b34a8.css`); 2025-04-01 `e4218a0` = build of `a994e4a`. Building
   `master` does not reproduce any of these.
