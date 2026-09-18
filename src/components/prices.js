@@ -4,6 +4,7 @@ import PriceCarousel, {
   useCarouselLayout,
   CAROUSEL_HOLD_MS,
   PHONE_CAROUSEL_HOLD_MS,
+  PHONE_BANNER_HEIGHT,
 } from "./PriceCarousel";
 
 // Replace these icon imports with your actual icon paths:
@@ -20,8 +21,7 @@ const METALS = [
   { symbol: "USDXPD", name: "Palladium", icon: palladiumIcon },
 ];
 
-// Narrow screens show two metals at a time (indexes into METALS); the 80px
-// phone layout shows one at a time instead.
+// Narrow screens, phones included, show two metals at a time (indexes into METALS).
 const PAIRS = [
   [0, 1], // Gold + Silver
   [2, 3], // Platinum + Palladium
@@ -98,17 +98,8 @@ const Prices = () => {
     return `${sign}${difference.toFixed(2)} (${sign}${percentChange.toFixed(2)}%)`;
   };
 
-  // Percent only, e.g. “+1.2%”: used by the phone carousel instead of formatChange
-  const formatPercent = (changeObj) => {
-    if (!changeObj) return "...";
-    const { difference, percentChange } = changeObj;
-    const sign = difference >= 0 ? "+" : "";
-    return `${sign}${percentChange.toFixed(1)}%`;
-  };
-
-  // One metal: icon, name, price and the change since yesterday. Only one of
-  // the two change spans is shown: the amount + percent in the row, the
-  // percent alone in the phone carousel (see Prices.css section 4).
+  // One metal: icon, name, price and the change since yesterday. The phone
+  // layout hides the change (see Prices.css section 4).
   const renderMetal = ({ symbol, name, icon }) => {
     const change = getChangeData(symbol, symbol);
     const changeClass = getClassName(change?.difference);
@@ -118,18 +109,25 @@ const Prices = () => {
         <span className="metalName">{name}</span>
         <span className="price">${prices[symbol]?.toFixed(2)}</span>
         <span className={`${changeClass} changeAmount`}>{formatChange(change)}</span>
-        <span className={`${changeClass} changePercent`}>{formatPercent(change)}</span>
       </div>
     );
   };
 
-  // Wide screens show one row; when it doesn't fit, a carousel of pairs, or
-  // of single metals in the 80px phone layout.
+  // Wide screens show one row; when it doesn't fit, a carousel of pairs, which
+  // phones show in their own, taller layout.
   const bannerRef = useRef(null);
   const layout = useCarouselLayout(bannerRef);
+  const bannerClass =
+    "banner" +
+    (layout.carousel ? " bannerCarousel" : "") +
+    (layout.phone ? " bannerPhone" : "");
 
   return (
-    <div className={layout.carousel ? "banner bannerCarousel" : "banner"} ref={bannerRef}>
+    <div
+      className={bannerClass}
+      style={layout.phone ? { height: PHONE_BANNER_HEIGHT } : undefined}
+      ref={bannerRef}
+    >
       {error && <span className="errorMsg">Error: {error}</span>}
 
       {!error && (!prices || !yesterdayPrices) && (
@@ -142,13 +140,9 @@ const Prices = () => {
 
           {layout.carousel && (
             <PriceCarousel
-              slides={
-                layout.single
-                  ? METALS.map((metal) => [renderMetal(metal)])
-                  : PAIRS.map((pair) => pair.map((i) => renderMetal(METALS[i])))
-              }
+              slides={PAIRS.map((pair) => pair.map((i) => renderMetal(METALS[i])))}
               scale={layout.scale}
-              hold={layout.single ? PHONE_CAROUSEL_HOLD_MS : CAROUSEL_HOLD_MS}
+              hold={layout.phone ? PHONE_CAROUSEL_HOLD_MS : CAROUSEL_HOLD_MS}
             />
           )}
         </>

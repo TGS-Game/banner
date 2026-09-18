@@ -2,17 +2,21 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 // How long each pair of metals stays on screen before moving to the next pair.
 export const CAROUSEL_HOLD_MS = 6000;
-// The same for the phone layout, which shows one metal per slide.
+// The same for the phone layout.
 export const PHONE_CAROUSEL_HOLD_MS = 5000;
 // How long the move between slides takes (a slide, or a fade with "reduce motion").
 export const CAROUSEL_TRANSITION_MS = 700;
 
-// The 80px phone layout (section 4 of Prices.css; keep the two in step), where
-// the carousel shows one metal per slide instead of a pair.
-const PHONE_QUERY = "(max-width: 768px) and (min-height: 80px)";
+// Height (px) of the phone banner. The phone layout (section 4 of Prices.css,
+// class `bannerPhone`) is used in frames at most 768px wide and at least this
+// tall; shorter frames, like the site's 20px desktop iframe, keep the 24px banner.
+export const PHONE_BANNER_HEIGHT = 40;
+const PHONE_QUERY = `(max-width: 768px) and (min-height: ${PHONE_BANNER_HEIGHT}px)`;
 
-// Space (px, before any scaling) kept either side of and between the metals on a slide.
+// Space (px, before any scaling) kept either side of and between the metals on
+// a slide; the phone layout's is tighter (Prices.css section 4 counts on it).
 const SLIDE_SPACING = 12;
+const PHONE_SLIDE_SPACING = 8;
 
 // Timing of one full loop through `count` slides, each held for `hold` ms.
 const loopTiming = (count, hold) => {
@@ -65,18 +69,23 @@ const fadeKeyframes = (count, hold, index) => {
 };
 
 // Decides between the one-row banner and the carousel by measuring the row
-// (and, for the carousel, between pairs and single metals on phones):
+// (and whether the frame gets the phone layout, see PHONE_QUERY):
 // the carousel is used when the four metals' natural widths, plus the banner's
 // gaps and padding, are wider than the page. Re-measures when prices, fonts or
 // the page size change. `scale` shrinks the slides only if the widest pair
 // would not otherwise fit (a safety net; the CSS sizes normally fit).
 export const useCarouselLayout = (bannerRef) => {
-  const [layout, setLayout] = useState({ carousel: false, single: false, scale: 1 });
+  const [layout, setLayout] = useState({ carousel: false, phone: false, scale: 1 });
 
   const measure = useCallback(() => {
+    const phone = window.matchMedia(PHONE_QUERY).matches;
     const banner = bannerRef.current;
     const items = banner ? [...banner.querySelectorAll(":scope > .metalItem")] : [];
-    if (!items.length) return;
+    if (!items.length) {
+      // Loading or error: no row to measure, but the phone height still applies.
+      setLayout((prev) => (prev.phone === phone ? prev : { ...prev, phone }));
+      return;
+    }
 
     const style = getComputedStyle(banner);
     const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
@@ -86,26 +95,26 @@ export const useCarouselLayout = (bannerRef) => {
       gap * (items.length - 1) +
       padding;
     const carousel = rowWidth > document.documentElement.clientWidth;
-    const single = carousel && window.matchMedia(PHONE_QUERY).matches;
 
     // Measure the slides as laid out (offsetWidth ignores the scale transform).
     let scale = 1;
     const track = banner.querySelector(".carouselTrack");
     if (carousel && track) {
+      const spacing = phone ? PHONE_SLIDE_SPACING : SLIDE_SPACING;
       const slideWidth = Math.max(
         ...[...track.querySelectorAll(".carouselPair")].map(
           (pair) =>
             [...pair.children].reduce((sum, item) => sum + item.offsetWidth + 1, 0) +
-            (pair.children.length + 1) * SLIDE_SPACING
+            (pair.children.length + 1) * spacing
         )
       );
       scale = Math.min(1, Math.floor((track.clientWidth / slideWidth) * 1000) / 1000);
     }
 
     setLayout((prev) =>
-      prev.carousel === carousel && prev.single === single && prev.scale === scale
+      prev.carousel === carousel && prev.phone === phone && prev.scale === scale
         ? prev
-        : { carousel, single, scale }
+        : { carousel, phone, scale }
     );
   }, [bannerRef]);
 

@@ -25,19 +25,27 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 - **24px carousel** (the page is too narrow for the row, but not a phone frame):
   two metals at a time, Gold + Silver then Platinum + Palladium, sliding left on
   a loop. Each pair holds 6s (13.4s loop).
-- **Phone layout**: in a frame at most 768px wide and at least 80px tall
-  (thegoldstandard.com's phone iframe is 80px tall at 768px and below) the banner
-  is 80px and the carousel shows **one metal per slide** on a single row, styled
-  after `design/mobile-banner.png` at the design's own sizes: icon in a filled
-  circle, name, price, and the **percent change only** (1 decimal; the row and
-  the 24px carousel show amount + percent, 2 decimals). Cycles Gold, Silver,
-  Platinum, Palladium, sliding left. Each metal holds 5s (22.8s loop). The worst
-  case (`PALLADIUM $8,888.88 +12.3%`) is 237px wide and fits at 320px unscaled.
-- Settings, at the top of `PriceCarousel.js`: `CAROUSEL_HOLD_MS` (6000, the 24px
-  pairs carousel), `PHONE_CAROUSEL_HOLD_MS` (5000, the phone layout) and
-  `CAROUSEL_TRANSITION_MS` (700, both). A loop is slides × (hold + transition).
-  `PHONE_QUERY` there must match the section 4) media query in `Prices.css`,
-  which holds the phone sizes. The pairs are `PAIRS` in `prices.js`.
+- **Phone layout**: in a frame at most 768px wide and at least
+  `PHONE_BANNER_HEIGHT` (40px) tall the banner is that height and the carousel
+  shows the same **pairs** (Gold + Silver, Platinum + Palladium), styled after
+  `design/mobile-banner.png`: 22px icon in a filled circle, name, price. **No
+  daily change** on phones. Each pair holds 5s (11.4s loop). JS adds the
+  `bannerPhone` class and the height; `Prices.css` section 4 keys off the class
+  (no media query), so the height is one setting.
+  thegoldstandard.com's phone iframe is 80px tall; it must be set to 40px or
+  the frame shows 40px of blank space under the banner.
+- Phone text is 14px name / 15px price from a ~386px-wide frame up, and shrinks
+  smoothly (vw-based, `--phone-text` in `Prices.css`) below that so the widest
+  realistic slide still fits: `PLATINUM $2000.00` + `PALLADIUM $2000.00`
+  (0 is League Spartan's widest digit; realistic caps are Gold/Platinum
+  $9999.99, Palladium $4999.99, Silver $199.99). The formula's constants
+  assume the icon, margin and `PHONE_SLIDE_SPACING` values: update them together.
+  Prices render with `toFixed(2)`, so no thousands comma.
+- Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
+  `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
+  (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
+  `PHONE_SLIDE_SPACING` (8). A loop is slides × (hold + transition). The pairs
+  are `PAIRS` in `prices.js`.
 
 ## Branches: work on `main`
 

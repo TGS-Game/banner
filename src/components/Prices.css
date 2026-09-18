@@ -61,11 +61,6 @@
   color: green;
 }
 
-/* The percent-only change is for the phone carousel (section 4) */
-.changePercent {
-  display: none;
-}
-
 /* Loading/error messages */
 .loadingMsg,
 .errorMsg {
@@ -127,42 +122,40 @@
   }
 }
 
-/* 4) Phones: on thegoldstandard.com the banner's iframe is 80px tall at 768px
-   and below, so the banner fills that height. The carousel shows one metal per
-   slide (PHONE_QUERY in PriceCarousel.js matches this media query), on one row
-   styled after design/mobile-banner.png at the design's own sizes: icon in a
-   filled circle, name, price, percent change. min-height keeps this out of
-   the 20px desktop frame. */
-@media (max-width: 768px) and (min-height: 80px) {
-  .banner {
-    box-sizing: border-box;
-    height: 80px;
-  }
-  .carouselPair > .metalItem {
-    gap: 0;
-    color: #121d30;
-    font-family: 'League Spartan', sans-serif;
-  }
-  .carouselPair .metalIcon {
-    width: 26px;
-    height: 26px;
-    margin-right: 10px;
-  }
-  .carouselPair .metalName {
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 700;
-    margin-right: 9px;
-  }
-  .carouselPair .price {
-    font-size: 15px;
-    margin-right: 11px;
-  }
-  .carouselPair .changeAmount {
-    display: none;
-  }
-  .carouselPair .changePercent {
-    display: inline;
-    font-size: 14px;
-  }
+/* 4) Phones: in frames at most 768px wide and at least PHONE_BANNER_HEIGHT
+   tall (PriceCarousel.js, which adds .bannerPhone and sets the height), the
+   carousel's pairs are styled after design/mobile-banner.png: icon in a filled
+   circle, name, price. No daily change.
+   The text is the design's 14px name / 15px price where the widest slide fits
+   (frames from about 386px wide), and shrinks smoothly with the frame below
+   that so it still fits. --phone-text is that scale, as px per 1px of design
+   size. The widest slide at realistic maximums is PLATINUM $2000.00 +
+   PALLADIUM $2000.00 (0 is the widest digit): 268.53px of text at design size,
+   117px of the rest (banner padding 16, icons 2 x 22, their margins 2 x 5, name
+   margins 2 x 9, PHONE_SLIDE_SPACING 3 x 8, measuring slack 2 + 3). */
+.bannerPhone {
+  box-sizing: border-box;
+  --phone-text: calc((100vw - 117px) / 268.53);
+}
+.bannerPhone .carouselPair > .metalItem {
+  gap: 0;
+  color: #121d30;
+  font-family: 'League Spartan', sans-serif;
+}
+.bannerPhone .carouselPair .metalIcon {
+  width: 22px;
+  height: 22px;
+  margin-right: 5px;
+}
+.bannerPhone .carouselPair .metalName {
+  font-family: inherit;
+  font-size: min(14px, calc(var(--phone-text) * 14));
+  font-weight: 700;
+  margin-right: 9px;
+}
+.bannerPhone .carouselPair .price {
+  font-size: min(15px, calc(var(--phone-text) * 15));
+}
+.bannerPhone .carouselPair .changeAmount {
+  display: none;
 }
