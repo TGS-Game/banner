@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./Prices.css";
-import PriceCarousel, { useCarouselLayout } from "./PriceCarousel";
+import PriceCarousel, {
+  useCarouselLayout,
+  CAROUSEL_HOLD_MS,
+  PHONE_CAROUSEL_HOLD_MS,
+} from "./PriceCarousel";
 
 // Replace these icon imports with your actual icon paths:
 import goldIcon from "./icons/gold-icon.png";
@@ -16,7 +20,8 @@ const METALS = [
   { symbol: "USDXPD", name: "Palladium", icon: palladiumIcon },
 ];
 
-// Narrow screens show two metals at a time (indexes into METALS).
+// Narrow screens show two metals at a time (indexes into METALS); the 80px
+// phone layout shows one at a time instead.
 const PAIRS = [
   [0, 1], // Gold + Silver
   [2, 3], // Platinum + Palladium
@@ -93,20 +98,33 @@ const Prices = () => {
     return `${sign}${difference.toFixed(2)} (${sign}${percentChange.toFixed(2)}%)`;
   };
 
-  // One metal: icon, name, price and the change since yesterday.
+  // Percent only, e.g. “+1.2%”: used by the phone carousel instead of formatChange
+  const formatPercent = (changeObj) => {
+    if (!changeObj) return "...";
+    const { difference, percentChange } = changeObj;
+    const sign = difference >= 0 ? "+" : "";
+    return `${sign}${percentChange.toFixed(1)}%`;
+  };
+
+  // One metal: icon, name, price and the change since yesterday. Only one of
+  // the two change spans is shown: the amount + percent in the row, the
+  // percent alone in the phone carousel (see Prices.css section 4).
   const renderMetal = ({ symbol, name, icon }) => {
     const change = getChangeData(symbol, symbol);
+    const changeClass = getClassName(change?.difference);
     return (
       <div className="metalItem" key={symbol}>
         <img src={icon} alt={`${name} icon`} className="metalIcon" />
         <span className="metalName">{name}</span>
         <span className="price">${prices[symbol]?.toFixed(2)}</span>
-        <span className={getClassName(change?.difference)}>{formatChange(change)}</span>
+        <span className={`${changeClass} changeAmount`}>{formatChange(change)}</span>
+        <span className={`${changeClass} changePercent`}>{formatPercent(change)}</span>
       </div>
     );
   };
 
-  // Wide screens show one row; when it doesn't fit, a carousel of pairs.
+  // Wide screens show one row; when it doesn't fit, a carousel of pairs, or
+  // of single metals in the 80px phone layout.
   const bannerRef = useRef(null);
   const layout = useCarouselLayout(bannerRef);
 
@@ -124,8 +142,13 @@ const Prices = () => {
 
           {layout.carousel && (
             <PriceCarousel
-              slides={PAIRS.map((pair) => pair.map((i) => renderMetal(METALS[i])))}
+              slides={
+                layout.single
+                  ? METALS.map((metal) => [renderMetal(metal)])
+                  : PAIRS.map((pair) => pair.map((i) => renderMetal(METALS[i])))
+              }
               scale={layout.scale}
+              hold={layout.single ? PHONE_CAROUSEL_HOLD_MS : CAROUSEL_HOLD_MS}
             />
           )}
         </>

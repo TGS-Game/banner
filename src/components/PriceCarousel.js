@@ -2,28 +2,34 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 // How long each pair of metals stays on screen before moving to the next pair.
 export const CAROUSEL_HOLD_MS = 6000;
-// How long the move between pairs takes (a slide, or a fade with "reduce motion").
+// The same for the phone layout, which shows one metal per slide.
+export const PHONE_CAROUSEL_HOLD_MS = 5000;
+// How long the move between slides takes (a slide, or a fade with "reduce motion").
 export const CAROUSEL_TRANSITION_MS = 700;
+
+// The 80px phone layout (section 4 of Prices.css; keep the two in step), where
+// the carousel shows one metal per slide instead of a pair.
+const PHONE_QUERY = "(max-width: 768px) and (min-height: 80px)";
 
 // Space (px, before any scaling) kept either side of and between the metals on a slide.
 const SLIDE_SPACING = 12;
 
-// Timing of one full loop through `count` slides.
-const loopTiming = (count) => {
-  const step = CAROUSEL_HOLD_MS + CAROUSEL_TRANSITION_MS;
+// Timing of one full loop through `count` slides, each held for `hold` ms.
+const loopTiming = (count, hold) => {
+  const step = hold + CAROUSEL_TRANSITION_MS;
   const duration = count * step;
   return { step, duration, at: (ms) => ms / duration };
 };
 
 // Hold, slide left, hold, ... The track ends on a copy of the first slide, so
 // going from the end of one loop to the start of the next is invisible.
-const slideKeyframes = (count) => {
-  const { step, at } = loopTiming(count);
+const slideKeyframes = (count, hold) => {
+  const { step, at } = loopTiming(count, hold);
   const frames = [];
   for (let i = 0; i < count; i++) {
     const transform = `translateX(${-100 * i}%)`;
     frames.push({ offset: at(i * step), transform });
-    frames.push({ offset: at(i * step + CAROUSEL_HOLD_MS), transform, easing: "ease-in-out" });
+    frames.push({ offset: at(i * step + hold), transform, easing: "ease-in-out" });
   }
   frames.push({ offset: 1, transform: `translateX(${-100 * count}%)` });
   return frames;
@@ -31,11 +37,11 @@ const slideKeyframes = (count) => {
 
 // "Reduce motion": the slides sit on top of each other. The current one fades
 // out over the first half of the transition, the next fades in over the second.
-const fadeKeyframes = (count, index) => {
-  const { step, at } = loopTiming(count);
+const fadeKeyframes = (count, hold, index) => {
+  const { step, at } = loopTiming(count, hold);
   const half = CAROUSEL_TRANSITION_MS / 2;
   const shownFrom = index * step;
-  const shownUntil = shownFrom + CAROUSEL_HOLD_MS;
+  const shownUntil = shownFrom + hold;
   const fadeIn =
     index === 0
       ? [{ offset: 0, opacity: 1 }]
@@ -58,13 +64,14 @@ const fadeKeyframes = (count, index) => {
   return [...fadeIn, ...fadeOut, ...end];
 };
 
-// Decides between the one-row banner and the carousel by measuring the row:
+// Decides between the one-row banner and the carousel by measuring the row
+// (and, for the carousel, between pairs and single metals on phones):
 // the carousel is used when the four metals' natural widths, plus the banner's
 // gaps and padding, are wider than the page. Re-measures when prices, fonts or
 // the page size change. `scale` shrinks the slides only if the widest pair
 // would not otherwise fit (a safety net; the CSS sizes normally fit).
 export const useCarouselLayout = (bannerRef) => {
-  const [layout, setLayout] = useState({ carousel: false, scale: 1 });
+  const [layout, setLayout] = useState({ carousel: false, single: false, scale: 1 });
 
   const measure = useCallback(() => {
     const banner = bannerRef.current;
@@ -79,6 +86,7 @@ export const useCarouselLayout = (bannerRef) => {
       gap * (items.length - 1) +
       padding;
     const carousel = rowWidth > document.documentElement.clientWidth;
+    const single = carousel && window.matchMedia(PHONE_QUERY).matches;
 
     // Measure the slides as laid out (offsetWidth ignores the scale transform).
     let scale = 1;
@@ -95,7 +103,9 @@ export const useCarouselLayout = (bannerRef) => {
     }
 
     setLayout((prev) =>
-      prev.carousel === carousel && prev.scale === scale ? prev : { carousel, scale }
+      prev.carousel === carousel && prev.single === single && prev.scale === scale
+        ? prev
+        : { carousel, single, scale }
     );
   }, [bannerRef]);
 
@@ -112,10 +122,11 @@ export const useCarouselLayout = (bannerRef) => {
   return layout;
 };
 
-// Shows each slide (an array of metal items) in turn, on an endless loop.
+// Shows each slide (an array of metal items) in turn, on an endless loop,
+// holding each for `hold` ms.
 // Runs on the Web Animations API, so when new prices arrive React only updates
 // the text in place: the animation keeps its position and timing.
-const PriceCarousel = ({ slides, scale }) => {
+const PriceCarousel = ({ slides, scale, hold = CAROUSEL_HOLD_MS }) => {
   const trackRef = useRef(null);
   const count = slides.length;
 
@@ -125,12 +136,12 @@ const PriceCarousel = ({ slides, scale }) => {
     let animations = [];
     const start = () => {
       animations.forEach((animation) => animation.cancel());
-      const timing = { duration: loopTiming(count).duration, iterations: Infinity };
+      const timing = { duration: loopTiming(count, hold).duration, iterations: Infinity };
       animations = reduceMotion.matches
         ? [...track.children]
             .slice(0, count)
-            .map((slide, i) => slide.animate(fadeKeyframes(count, i), timing))
-        : [track.animate(slideKeyframes(count), timing)];
+            .map((slide, i) => slide.animate(fadeKeyframes(count, hold, i), timing))
+        : [track.animate(slideKeyframes(count, hold), timing)];
     };
     start();
     reduceMotion.addEventListener?.("change", start);
@@ -138,7 +149,7 @@ const PriceCarousel = ({ slides, scale }) => {
       reduceMotion.removeEventListener?.("change", start);
       animations.forEach((animation) => animation.cancel());
     };
-  }, [count]);
+  }, [count, hold]);
 
   // Lay the pair out at full size, then shrink it to the slide's width.
   const pairStyle =

@@ -61,6 +61,11 @@
   color: green;
 }
 
+/* The percent-only change is for the phone carousel (section 4) */
+.changePercent {
+  display: none;
+}
+
 /* Loading/error messages */
 .loadingMsg,
 .errorMsg {
@@ -123,43 +128,41 @@
 }
 
 /* 4) Phones: on thegoldstandard.com the banner's iframe is 80px tall at 768px
-   and below, so the banner fills that height and each metal is stacked on
-   three larger lines. min-height keeps this out of the 20px desktop frame. */
+   and below, so the banner fills that height. The carousel shows one metal per
+   slide (PHONE_QUERY in PriceCarousel.js matches this media query), on one row
+   styled after design/mobile-banner.png at the design's own sizes: icon in a
+   filled circle, name, price, percent change. min-height keeps this out of
+   the 20px desktop frame. */
 @media (max-width: 768px) and (min-height: 80px) {
   .banner {
     box-sizing: border-box;
     height: 80px;
   }
   .carouselPair > .metalItem {
-    display: grid;
-    grid-template-columns: 1fr auto auto 1fr;
-    grid-template-areas:
-      ". icon name ."
-      "price price price price"
-      "change change change change";
-    align-items: center;
-    justify-items: center;
-    row-gap: 3px;
+    gap: 0;
+    color: #121d30;
+    font-family: 'League Spartan', sans-serif;
   }
   .carouselPair .metalIcon {
-    grid-area: icon;
-    width: 18px;
-    height: 18px;
-    margin-right: 6px;
+    width: 26px;
+    height: 26px;
+    margin-right: 10px;
   }
   .carouselPair .metalName {
-    grid-area: name;
-    font-size: 17px;
-    line-height: 1.1;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    margin-right: 9px;
   }
   .carouselPair .price {
-    grid-area: price;
-    font-size: 22px;
-    line-height: 1.05;
-  }
-  .carouselPair .metalItem > :last-child {
-    grid-area: change;
     font-size: 15px;
-    line-height: 1.15;
+    margin-right: 11px;
+  }
+  .carouselPair .changeAmount {
+    display: none;
+  }
+  .carouselPair .changePercent {
+    display: inline;
+    font-size: 14px;
   }
 }

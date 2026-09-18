@@ -12,6 +12,7 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 - Two components in `src/components/`: `prices.js` (fetching and the one-row
   banner; + `Prices.css`, `icons/`) and `PriceCarousel.js` (the narrow-screen
   carousel). `src/App.js` just renders `Prices`. `public/style.css` holds global styles.
+- `design/mobile-banner.png` is the design the phone layout follows.
 - Data comes from `https://api.metalpriceapi.com/v1/...`, called **directly from
   the browser**. On `main` it fetches `latest` plus yesterday's historical rates,
   so each refresh makes 2 API calls.
@@ -20,21 +21,32 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 
 - Wide screens show the original one-row banner, 24px tall. When the four metals
   don't fit on one row (measured at runtime; about 1048px with typical prices), it
-  switches to a carousel of two metals at a time: Gold + Silver, then Platinum +
-  Palladium, sliding left on a loop. With "reduce motion" on, the pairs fade.
-- In a frame at most 768px wide and at least 80px tall (thegoldstandard.com's phone
-  iframe is 80px tall at 768px and below) the carousel is 80px with larger text;
-  otherwise it is 24px.
-- Settings: `CAROUSEL_HOLD_MS` (6000) and `CAROUSEL_TRANSITION_MS` (700) at the top
-  of `PriceCarousel.js`; the pairs are `PAIRS` in `prices.js`; the 80px phone sizes
-  are section 4) of `Prices.css`.
+  switches to a carousel. With "reduce motion" on, slides fade instead of sliding.
+- **24px carousel** (the page is too narrow for the row, but not a phone frame):
+  two metals at a time, Gold + Silver then Platinum + Palladium, sliding left on
+  a loop. Each pair holds 6s (13.4s loop).
+- **Phone layout**: in a frame at most 768px wide and at least 80px tall
+  (thegoldstandard.com's phone iframe is 80px tall at 768px and below) the banner
+  is 80px and the carousel shows **one metal per slide** on a single row, styled
+  after `design/mobile-banner.png` at the design's own sizes: icon in a filled
+  circle, name, price, and the **percent change only** (1 decimal; the row and
+  the 24px carousel show amount + percent, 2 decimals). Cycles Gold, Silver,
+  Platinum, Palladium, sliding left. Each metal holds 5s (22.8s loop). The worst
+  case (`PALLADIUM $8,888.88 +12.3%`) is 237px wide and fits at 320px unscaled.
+- Settings, at the top of `PriceCarousel.js`: `CAROUSEL_HOLD_MS` (6000, the 24px
+  pairs carousel), `PHONE_CAROUSEL_HOLD_MS` (5000, the phone layout) and
+  `CAROUSEL_TRANSITION_MS` (700, both). A loop is slides × (hold + transition).
+  `PHONE_QUERY` there must match the section 4) media query in `Prices.css`,
+  which holds the phone sizes. The pairs are `PAIRS` in `prices.js`.
 
 ## Branches: work on `main`
 
-- **`main` is the live branch.** Verified 2026-09-10: building `main` @ `a994e4a`
-  reproduces the live site's `main.3d5895be.js`, `main.f54e2d47.css` and
-  `453.df2d0003.chunk.js` byte-for-byte. Building `master` does not. The live
-  site matches the `gh-pages` branch at `e4218a0` (deployed 2025-04-01).
+- **`main` is the live branch.** Deployed 2026-09-18 from `main` at the commit
+  that added this note (one-metal phone layout): live serves `main.9740394e.js`,
+  `main.2ffbd2cd.css` and `453.df2d0003.chunk.js`. History: 2026-09-10 `gh-pages`
+  `29c7c71` = build of `a290afe` (carousel; `main.02a3d7bd.js`,
+  `main.563b34a8.css`); 2025-04-01 `e4218a0` = build of `a994e4a`. Building
+  `master` does not reproduce any of these.
 - `master` is stale: 7 commits behind `main`, with hardcoded placeholder
   daily-change figures. It is still the GitHub **default** branch, so a fresh
   clone lands on `master`. Run `git switch main` after cloning.
@@ -48,6 +60,9 @@ npm start         # dev server on http://localhost:3000
 npm test          # jest (watch mode)
 ```
 
+- Windows Server here has system animations off, so headless Chrome reports
+  `prefers-reduced-motion: reduce` (the fade, not the slide) unless you emulate
+  `no-preference`.
 - `npm start` (and opening the built page) makes **real calls to metalpriceapi.com
   using the production key**, so it spends the live API quota: 2 calls per minute
   per open tab. It does not write anywhere.
