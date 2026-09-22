@@ -82,7 +82,7 @@ export const useCarouselLayout = (bannerRef) => {
     const banner = bannerRef.current;
     const items = banner ? [...banner.querySelectorAll(":scope > .metalItem")] : [];
     if (!items.length) {
-      // Loading or error: no row to measure, but the phone height still applies.
+      // Before the first prices: no row to measure, but the phone height still applies.
       setLayout((prev) => (prev.phone === phone ? prev : { ...prev, phone }));
       return;
     }

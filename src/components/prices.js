@@ -101,7 +101,9 @@ const Prices = () => {
   const bannerClass =
     "banner" +
     (layout.carousel ? " bannerCarousel" : "") +
-    (layout.phone ? " bannerPhone" : "");
+    (layout.phone ? " bannerPhone" : "") +
+    // Before the first prices arrive: an empty strip, no text, same height.
+    (metals ? "" : " bannerEmpty");
 
   return (
     <div
@@ -109,8 +111,6 @@ const Prices = () => {
       style={layout.phone ? { height: PHONE_BANNER_HEIGHT } : undefined}
       ref={bannerRef}
     >
-      {!metals && <span className="loadingMsg">Loading metal prices...</span>}
-
       {metals && (
         <>
           {METALS.map(renderMetal)}

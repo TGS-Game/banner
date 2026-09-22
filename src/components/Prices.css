@@ -61,9 +61,13 @@
   color: green;
 }
 
-/* Loading message (shown until the first prices arrive) */
-.loadingMsg {
-  font-family: 'League Spartan', sans-serif;
+/* Before the first prices arrive the banner is empty, with no text. It keeps
+   the height it has with prices (the row is 16px plus the 4px padding), so
+   nothing moves when they appear. The phone layout sets its own height inline
+   (PHONE_BANNER_HEIGHT), which wins over this. */
+.bannerEmpty {
+  box-sizing: border-box;
+  height: 24px;
 }
 
 /* 3) Narrow screens: when the four metals no longer fit on one row, the row

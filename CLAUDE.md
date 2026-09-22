@@ -44,9 +44,11 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   range (`RANGES` in the script), a move of at most 25% since yesterday, and
   rates at most 4 days old. On any failure nothing is written (the last good
   file stays) and the run fails, visibly, in the Actions tab.
-- **Banner on failure:** before the first good file it shows "Loading metal
-  prices..."; after that a failed, broken or incomplete read keeps the last
-  prices. It never shows error text.
+- **Banner on failure:** before the first good file it shows **nothing**: an
+  empty strip of the background colour, no text (class `bannerEmpty`, fixed at
+  24px so nothing moves when the prices appear; the phone layout's inline 40px
+  wins over it). After that a failed, broken or incomplete read keeps the last
+  prices. It never shows error or placeholder text.
 - **Secret:** `METALPRICE_API_KEY`, a GitHub Actions repository secret. The code
   contains no key.
 - **Run it now:** GitHub > Actions > "Update prices" > "Run workflow", or
@@ -93,9 +95,14 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 
 ## Branches: work on `main`
 
-- **`main` is the live branch.** Deployed 2026-09-18: `gh-pages` `eb71b14` =
-  build of `9abaeb7` (40px phone pairs): live serves `main.fa2023fd.js`,
-  `main.22f1760a.css` and `453.df2d0003.chunk.js`. History: earlier 2026-09-18
+- **`main` is the live branch.** Deployed 2026-09-22: `gh-pages` `be793fd` =
+  build of `63657c4` (prices from the scheduled job, no API calls in the
+  browser): live serves `main.9bccde13.js`, `main.f3ffac55.css` and
+  `206.966e2417.chunk.js`, and no `.map` files. `prices.json` sits beside them,
+  committed by the job, and survived this deploy (`keep-prices`). History:
+  2026-09-18 `gh-pages` `eb71b14` =
+  build of `9abaeb7` (40px phone pairs): `main.fa2023fd.js`,
+  `main.22f1760a.css` and `453.df2d0003.chunk.js`; earlier 2026-09-18
   `gh-pages` `1353be1` = build of `1fe617e` (one-metal phone layout;
   `main.9740394e.js`, `main.2ffbd2cd.css`); 2026-09-10 `gh-pages`
   `29c7c71` = build of `a290afe` (carousel; `main.02a3d7bd.js`,
@@ -119,8 +126,8 @@ npm test          # jest (watch mode)
   `prefers-reduced-motion: reduce` (the fade, not the slide) unless you emulate
   `no-preference`.
 - `npm start` and the built page make **no** metalpriceapi calls. They read
-  `/banner/prices.json`, which doesn't exist locally, so the banner stays on
-  "Loading metal prices...". To see prices, put a test file in
+  `/banner/prices.json`, which doesn't exist locally, so the banner stays an
+  empty strip. To see prices, put a test file in
   `public/prices.json` (gitignored; `keep-prices` never publishes it), e.g. a
   copy of the live one.
 - To test the job without the API, stub `fetch` (e.g. `node --import` a module
