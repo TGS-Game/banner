@@ -11,6 +11,9 @@
 # production
 /build
 
+# local test prices for `npm start` (the real file lives on gh-pages)
+/public/prices.json
+
 # misc
 .DS_Store
 .env.local

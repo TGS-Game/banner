@@ -9,13 +9,57 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 ## Stack
 
 - Create React App (`react-scripts` 5), React 18. No backend, no database.
-- Two components in `src/components/`: `prices.js` (fetching and the one-row
-  banner; + `Prices.css`, `icons/`) and `PriceCarousel.js` (the narrow-screen
-  carousel). `src/App.js` just renders `Prices`. `public/style.css` holds global styles.
+- Two components in `src/components/`: `prices.js` (reading `prices.json` and the
+  one-row banner; + `Prices.css`, `icons/`) and `PriceCarousel.js` (the
+  narrow-screen carousel). `src/App.js` just renders `Prices`. `public/style.css`
+  holds global styles.
 - `design/mobile-banner.png` is the design the phone layout follows.
-- Data comes from `https://api.metalpriceapi.com/v1/...`, called **directly from
-  the browser**. On `main` it fetches `latest` plus yesterday's historical rates,
-  so each refresh makes 2 API calls.
+- `scripts/fetch-prices.mjs` + `.github/workflows/update-prices.yml`: the job that
+  fetches prices (see "Prices: how they flow"). `scripts/keep-prices.mjs`: part of
+  `npm run deploy`.
+
+## Prices: how they flow
+
+- **The browser never calls metalpriceapi.** The banner reads only
+  `prices.json`, next to the page: https://tgs-game.github.io/banner/prices.json
+  (`${PUBLIC_URL}/prices.json`), on load and every 60 seconds, with
+  `cache: "no-cache"` (Pages sends `max-age=600`). That costs no API quota.
+- **The file lives on the `gh-pages` branch** (root), not on `main`. The
+  "Update prices" workflow (`.github/workflows/update-prices.yml`) runs every 10
+  minutes (`4-59/10`, off the top of the hour) and on demand. It runs
+  `scripts/fetch-prices.mjs` on a checkout of `gh-pages`, commits `prices.json`
+  if it changed, pushes, then asks GitHub Pages to rebuild (`POST
+  /repos/TGS-Game/banner/pages/builds`, because a push with the built-in token
+  does not start one).
+- **API calls:** `latest` every run; yesterday's historical rates only when the
+  UTC date rolls over (otherwise recovered from the file as price - change). So
+  about 145 calls a day, about 4,400 a month. Each run is 1 call (2 once a day).
+  The plan is **Basic Plus** (50,000 a month, prices update every 5 minutes), so
+  there is plenty of room; 10 minutes is a deliberate choice, not a limit (the
+  prices don't move enough to justify 5). The schedule is the `cron` line.
+- **File format:** `fetchedAt`, `ratesAt` (the API's timestamp), `yesterdayDate`
+  (UTC), and `metals.{XAU,XAG,XPT,XPD}.{price, change, changePercent}`: the same
+  sums the banner used to do. The banner formats them with `toFixed(2)`.
+- **Checks before writing:** all four metals present, numeric and within a sane
+  range (`RANGES` in the script), a move of at most 25% since yesterday, and
+  rates at most 4 days old. On any failure nothing is written (the last good
+  file stays) and the run fails, visibly, in the Actions tab.
+- **Banner on failure:** before the first good file it shows "Loading metal
+  prices..."; after that a failed, broken or incomplete read keeps the last
+  prices. It never shows error text.
+- **Secret:** `METALPRICE_API_KEY`, a GitHub Actions repository secret. The code
+  contains no key.
+- **Run it now:** GitHub > Actions > "Update prices" > "Run workflow", or
+  `gh workflow run update-prices.yml -R TGS-Game/banner` then
+  `gh run watch -R TGS-Game/banner`. Each run spends 1-2 API calls.
+- **Schedule caveats:** GitHub starts scheduled runs late or skips some under
+  load. Schedules only run from the default branch (`main`), and in a public repo
+  are turned off after 60 days with no repository activity: re-enable in the
+  Actions tab. Stale prices show as an old `fetchedAt` in `prices.json`.
+- `npm run deploy` would otherwise delete `prices.json` (it replaces the whole
+  `gh-pages` branch), so `predeploy` runs `scripts/keep-prices.mjs`, which copies
+  the current file from `origin/gh-pages` into `build/`. A deploy and a job run
+  pushing at the same moment: one push is rejected; re-run it.
 
 ## Layout: row vs carousel
 
@@ -57,9 +101,10 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   `29c7c71` = build of `a290afe` (carousel; `main.02a3d7bd.js`,
   `main.563b34a8.css`); 2025-04-01 `e4218a0` = build of `a994e4a`. Building
   `master` does not reproduce any of these.
-- `master` is stale: 7 commits behind `main`, with hardcoded placeholder
-  daily-change figures. It is still the GitHub **default** branch, so a fresh
-  clone lands on `master`. Run `git switch main` after cloning.
+- `main` has been the GitHub **default** branch since 2026-09-22 (needed: the
+  scheduled workflow only runs from the default branch). `master` is stale,
+  with hardcoded placeholder daily-change figures and the old API key in
+  `src/components/prices.js`.
 
 ## Running locally
 
@@ -73,9 +118,13 @@ npm test          # jest (watch mode)
 - Windows Server here has system animations off, so headless Chrome reports
   `prefers-reduced-motion: reduce` (the fade, not the slide) unless you emulate
   `no-preference`.
-- `npm start` (and opening the built page) makes **real calls to metalpriceapi.com
-  using the production key**, so it spends the live API quota: 2 calls per minute
-  per open tab. It does not write anywhere.
+- `npm start` and the built page make **no** metalpriceapi calls. They read
+  `/banner/prices.json`, which doesn't exist locally, so the banner stays on
+  "Loading metal prices...". To see prices, put a test file in
+  `public/prices.json` (gitignored; `keep-prices` never publishes it), e.g. a
+  copy of the live one.
+- To test the job without the API, stub `fetch` (e.g. `node --import` a module
+  that replaces `globalThis.fetch`). Running it for real spends 1-2 calls.
 - `npm test`: `src/App.test.js` is untouched CRA boilerplate ("learn react") and
   is expected to fail. Treat it as stale, not as a regression.
 - To check a build matches what's live, compare the `static/js/main.*.js` and
@@ -84,15 +133,19 @@ npm test          # jest (watch mode)
 
 ## Deployment (= production)
 
-- `npm run deploy` runs `predeploy` (`npm run build`), then `gh-pages -d build`
-  (`gh-pages` ^4 on `main`), which **pushes the build to the `gh-pages` branch on
-  origin**. GitHub Pages (legacy mode, source `gh-pages` /) serves it at
+- `npm run deploy` runs `predeploy` (`npm run build`, then
+  `scripts/keep-prices.mjs`, which does a `git fetch` and copies the live
+  `prices.json` into `build/`), then `gh-pages -d build` (`gh-pages` ^4 on
+  `main`), which **pushes the build to the `gh-pages` branch on origin**.
+- `.env` sets `GENERATE_SOURCEMAP=false` (not a secret), so no `.map` files are
+  published. GitHub Pages (legacy mode, source `gh-pages` /) serves it at
   **https://tgs-game.github.io/banner/**. That is the live site.
 - Never run `npm run deploy` or push to `gh-pages` without explicit approval.
 - `homepage` in package.json is `https://tgs-game.github.io/banner/`, so asset
   paths resolve to `/banner/`. The old URL `https://thegldstandard.github.io/banner/`
-  returns 404, and thegoldstandard.com's iframe still points at it (checked
-  2026-09-10), so the site shows no banner until that iframe's `src` is updated.
+  returns 404. thegoldstandard.com's iframe points at
+  `https://tgs-game.github.io/banner` (checked 2026-09-22), as does the site
+  rebuild in `thegoldstandard-main` / `-mobile` (`src/site.js` `tickerUrl`).
 - This machine has `core.autocrlf=true`, so files copied from `public/` (e.g.
   `style.css`) get CRLF line endings in local builds. That doesn't reach the
   live site: `gh-pages` commits through git, which converts them back to LF on
@@ -103,25 +156,32 @@ npm test          # jest (watch mode)
 
 ## Environment variables & secrets
 
-- The code reads **no environment variables** and has no `.env` files.
-- The metalpriceapi key is **hardcoded** in `src/components/prices.js` on both
-  branches. It is public in git history and in the shipped JS bundle.
-  - Never print, log, echo or copy the key into new files, docs or messages.
-  - Moving it to `REACT_APP_*` does not hide it: CRA inlines those values into the
-    client bundle. A real fix is a server-side proxy and/or rotating the key with
-    domain restrictions. Discuss with the user first.
-- Report env vars only as "set / not set", never their values.
+- The banner reads **no environment variables**. `.env` only holds
+  `GENERATE_SOURCEMAP=false`.
+- The job reads `METALPRICE_API_KEY`, from the GitHub Actions repository secret of
+  that name. Never add it to `.env`, `REACT_APP_*` or any file: CRA would inline
+  it into the public bundle.
+- The **old** key was hardcoded in `src/components/prices.js` from `0f5fb8c`
+  (2025-02-25) until this change, and is still there on `master`. It is public in
+  git history, in every `gh-pages` commit, and in a saved copy of an old bundle in
+  `support-auvesta-v3/public/login-assets/` (dead code, but served). The fix is a
+  new key in the secret and deleting the old one; don't rewrite history.
+  - Never print, log, echo or copy any key into files, docs or messages.
+    `fetch-prices.mjs` never logs request URLs or response bodies (the URL
+    contains the key); keep it that way.
+- Report env vars and secrets only as "set / not set", never their values.
 
 ## How to work in this repo (user's rules)
 
 1. **Investigate**: read the relevant code and confirm you're on `main`.
 2. **Build**: make the change.
 3. **Verify**: at minimum `npm run build` must succeed. Check it visually with
-   `npm start` when the UI changes (flag the API-quota cost first).
+   `npm start` when the UI changes (with a test `public/prices.json`).
 4. **Show the diff**: `git status` + `git diff`.
 5. **Stop.** Do not commit, push or deploy until the user explicitly says so.
 
 Before running anything, say whether it would touch a live service (the
-metalpriceapi quota, the `gh-pages` branch or GitHub Pages).
+metalpriceapi quota, the `gh-pages` branch, GitHub Pages or the "Update prices"
+workflow). Never run the workflow without explicit approval.
 
 Environment: Windows. Use PowerShell syntax.

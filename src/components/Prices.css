@@ -61,9 +61,8 @@
   color: green;
 }
 
-/* Loading/error messages */
-.loadingMsg,
-.errorMsg {
+/* Loading message (shown until the first prices arrive) */
+.loadingMsg {
   font-family: 'League Spartan', sans-serif;
 }
 

@@ -15,10 +15,10 @@ import palladiumIcon from "./icons/palladium-icon.png";
 
 // The four metals, in banner order.
 const METALS = [
-  { symbol: "USDXAU", name: "Gold", icon: goldIcon },
-  { symbol: "USDXAG", name: "Silver", icon: silverIcon },
-  { symbol: "USDXPT", name: "Platinum", icon: platinumIcon },
-  { symbol: "USDXPD", name: "Palladium", icon: palladiumIcon },
+  { symbol: "XAU", name: "Gold", icon: goldIcon },
+  { symbol: "XAG", name: "Silver", icon: silverIcon },
+  { symbol: "XPT", name: "Platinum", icon: platinumIcon },
+  { symbol: "XPD", name: "Palladium", icon: palladiumIcon },
 ];
 
 // Narrow screens, phones included, show two metals at a time (indexes into METALS).
@@ -27,62 +27,44 @@ const PAIRS = [
   [2, 3], // Platinum + Palladium
 ];
 
+// Prices, with the change since yesterday, written every 10 minutes by the
+// "Update prices" GitHub workflow (scripts/fetch-prices.mjs) next to this page.
+const PRICES_URL = `${process.env.PUBLIC_URL}/prices.json`;
+const REFRESH_MS = 60000;
+
+// The file's metals, if all four are there with numbers; otherwise null.
+const readMetals = (data) => {
+  const metals = data?.metals;
+  const complete = METALS.every(({ symbol }) =>
+    ["price", "change", "changePercent"].every((field) =>
+      Number.isFinite(metals?.[symbol]?.[field])
+    )
+  );
+  return complete ? metals : null;
+};
+
 const Prices = () => {
-  const [prices, setPrices] = useState(null);            // Today’s prices
-  const [yesterdayPrices, setYesterdayPrices] = useState(null); // Yesterday’s prices
-  const [error, setError] = useState(null);
+  // The last good prices. A failed or broken read keeps these.
+  const [metals, setMetals] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1) Fetch Today’s Latest Prices
-        const latestResponse = await fetch(
-          "https://api.metalpriceapi.com/v1/latest?api_key=98ce31de34ecaadcd00d49d12137a56a&base=USD&symbols=XAU,XAG,XPT,XPD"
-        );
-        if (!latestResponse.ok) {
-          throw new Error("Error fetching latest prices");
-        }
-        const latestData = await latestResponse.json();
-        setPrices(latestData.rates);
-
-        // 2) Calculate “Yesterday’s” Date String (YYYY-MM-DD)
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const year = yesterday.getFullYear();
-        const month = String(yesterday.getMonth() + 1).padStart(2, "0");
-        const day = String(yesterday.getDate()).padStart(2, "0");
-        const dateStr = `${year}-${month}-${day}`;
-
-        // 3) Fetch Yesterday’s Prices (Requires Historical Data in Your Plan)
-        const historicalUrl = `https://api.metalpriceapi.com/v1/${dateStr}?api_key=98ce31de34ecaadcd00d49d12137a56a&base=USD&symbols=XAU,XAG,XPT,XPD`;
-        const yesterdayResponse = await fetch(historicalUrl);
-        if (!yesterdayResponse.ok) {
-          throw new Error("Error fetching yesterday's prices");
-        }
-        const yesterdayData = await yesterdayResponse.json();
-        setYesterdayPrices(yesterdayData.rates);
-      } catch (err) {
-        setError(err.message);
+        // no-cache: always ask the server for a newer copy (Pages caches 10 min)
+        const response = await fetch(PRICES_URL, { cache: "no-cache" });
+        if (!response.ok) return;
+        const latest = readMetals(await response.json());
+        if (latest) setMetals(latest);
+      } catch {
+        // Offline or a broken file: keep what's on screen.
       }
     };
 
     fetchData();
-    // Optional: Auto-refresh every 60 seconds
-    const interval = setInterval(fetchData, 60000);
+    // Re-read the file every 60 seconds (it changes about every 10 minutes).
+    const interval = setInterval(fetchData, REFRESH_MS);
     return () => clearInterval(interval);
   }, []);
-
-  // Helper function: compute difference and percent change
-  const getChangeData = (symbolToday, symbolYesterday) => {
-    if (!prices || !yesterdayPrices) return null;
-    const todayPrice = prices[symbolToday];
-    const ydayPrice = yesterdayPrices[symbolYesterday];
-    if (!todayPrice || !ydayPrice) return null;
-
-    const difference = todayPrice - ydayPrice;
-    const percentChange = (difference / ydayPrice) * 100;
-    return { difference, percentChange };
-  };
 
   // Return appropriate class name (for red/green text)
   const getClassName = (difference) => {
@@ -91,24 +73,23 @@ const Prices = () => {
   };
 
   // Format text like: “+2.50 (+1.22%)” or “-1.75 (-0.99%)”
-  const formatChange = (changeObj) => {
-    if (!changeObj) return "...";
-    const { difference, percentChange } = changeObj;
-    const sign = difference >= 0 ? "+" : "";
-    return `${sign}${difference.toFixed(2)} (${sign}${percentChange.toFixed(2)}%)`;
+  const formatChange = ({ change, changePercent }) => {
+    const sign = change >= 0 ? "+" : "";
+    return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
   };
 
   // One metal: icon, name, price and the change since yesterday. The phone
   // layout hides the change (see Prices.css section 4).
   const renderMetal = ({ symbol, name, icon }) => {
-    const change = getChangeData(symbol, symbol);
-    const changeClass = getClassName(change?.difference);
+    const metal = metals[symbol];
     return (
       <div className="metalItem" key={symbol}>
         <img src={icon} alt={`${name} icon`} className="metalIcon" />
         <span className="metalName">{name}</span>
-        <span className="price">${prices[symbol]?.toFixed(2)}</span>
-        <span className={`${changeClass} changeAmount`}>{formatChange(change)}</span>
+        <span className="price">${metal.price.toFixed(2)}</span>
+        <span className={`${getClassName(metal.change)} changeAmount`}>
+          {formatChange(metal)}
+        </span>
       </div>
     );
   };
@@ -128,13 +109,9 @@ const Prices = () => {
       style={layout.phone ? { height: PHONE_BANNER_HEIGHT } : undefined}
       ref={bannerRef}
     >
-      {error && <span className="errorMsg">Error: {error}</span>}
+      {!metals && <span className="loadingMsg">Loading metal prices...</span>}
 
-      {!error && (!prices || !yesterdayPrices) && (
-        <span className="loadingMsg">Loading metal prices...</span>
-      )}
-
-      {!error && prices && yesterdayPrices && (
+      {metals && (
         <>
           {METALS.map(renderMetal)}
 
