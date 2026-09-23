@@ -54,10 +54,21 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 - **Run it now:** GitHub > Actions > "Update prices" > "Run workflow", or
   `gh workflow run update-prices.yml -R TGS-Game/banner` then
   `gh run watch -R TGS-Game/banner`. Each run spends 1-2 API calls.
-- **Schedule caveats:** GitHub starts scheduled runs late or skips some under
-  load. Schedules only run from the default branch (`main`), and in a public repo
+- **Schedule caveats: GitHub runs this far less often than every 10 minutes.**
+  The `cron` is right and the workflow is `active`, but GitHub drops most runs.
+  Measured over the first night (2026-09-22/23), 3 runs happened where about 60
+  were due: 19:22 (manual) -> 22:21 -> 00:46 -> 05:17, gaps of 3h 0m, 2h 25m and
+  4h 31m. The runs that do happen start 2-7 minutes after a slot, and all of them
+  succeeded. So **expect prices a few hours old, not the 10-25 minutes first
+  estimated**; that estimate assumed the schedule mostly fires.
+  - Nothing breaks when runs are skipped: the banner keeps showing the last
+    prices. Staleness shows as an old `fetchedAt` in `prices.json`.
+  - If the cadence matters, trigger `workflow_dispatch` from a scheduler off
+    GitHub (e.g. a Windows Scheduled Task running `gh workflow run`) and treat
+    the `cron` as a fallback. Not built; discuss first.
+- Schedules only run from the default branch (`main`), and in a public repo
   are turned off after 60 days with no repository activity: re-enable in the
-  Actions tab. Stale prices show as an old `fetchedAt` in `prices.json`.
+  Actions tab.
 - `npm run deploy` would otherwise delete `prices.json` (it replaces the whole
   `gh-pages` branch), so `predeploy` runs `scripts/keep-prices.mjs`, which copies
   the current file from `origin/gh-pages` into `build/`. A deploy and a job run
