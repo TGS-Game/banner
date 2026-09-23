@@ -46,7 +46,10 @@ $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
 $trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).Date.AddMinutes(1)) `
     -RepetitionInterval (New-TimeSpan -Minutes 10)
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew `
+# Priority 4 (normal). At the default, 7, tasks also get low I/O priority, and
+# on this VPS PowerShell then takes from 30 seconds to over 3 minutes to start
+# as SYSTEM (1.8 seconds at 4; measured 2026-09-23).
+$settings = New-ScheduledTaskSettingsSet -Priority 4 -StartWhenAvailable -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal `

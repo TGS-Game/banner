@@ -82,7 +82,9 @@ s.json`.
   runs `C:\ProgramData\BannerWatchdog\price-watchdog.ps1`, a copy of
   `ops/price-watchdog.ps1` made by `ops/install-watchdog.ps1`. **After editing
   the script, re-run the installer**, or the task keeps the old copy. The folder
-  is locked to SYSTEM and Administrators.
+  is locked to SYSTEM and Administrators. The task runs at priority 4: at the
+  default (7) PowerShell took 30s to over 3 minutes just to start as SYSTEM
+  here (1.8s at 4). A run takes about 20s.
 - **Each run:**
   1. Reads the live `prices.json`. Over 45 minutes old = stale -> **one**
      message to #depot-alerts with the age and a link to the workflow's page
