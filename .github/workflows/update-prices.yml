@@ -2,9 +2,13 @@
 # served at https://tgs-game.github.io/banner/prices.json. The banner reads only
 # that file; visitors' browsers never call metalpriceapi.
 #
-# Runs every 10 minutes (GitHub may start runs late, or skip some) and from the
-# Actions tab: "Update prices" > "Run workflow". Needs the repository secret
-# METALPRICE_API_KEY. Any failure fails the run and leaves the last good file.
+# Started every 10 minutes by the "Banner price watchdog" Scheduled Task on the
+# VPS (ops/price-watchdog.ps1, workflow_dispatch), by the schedule below as a
+# backstop (GitHub skips most scheduled runs), and from the Actions tab:
+# "Update prices" > "Run workflow". A run within 8 minutes of the last fetch
+# does nothing (MIN_GAP_MINUTES in the script), which keeps Pages builds under
+# GitHub's 10 an hour. Needs the repository secret METALPRICE_API_KEY. Any
+# failure fails the run and leaves the last good file.
 #
 # Scheduled runs only happen on the default branch (main), and GitHub turns the
 # schedule off after 60 days without repository activity (re-enable it from the

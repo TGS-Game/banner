@@ -31,6 +31,12 @@ const RANGES = {
 const MAX_DAILY_MOVE = 25;
 // `latest` may lag over a weekend, but not by more than this.
 const MAX_RATES_AGE_DAYS = 4;
+// Two triggers start this job: GitHub's schedule and a Scheduled Task on the
+// VPS (ops/price-watchdog.ps1), each every 10 minutes. A run within this many
+// minutes of the last fetch does nothing (no API call, no push, no Pages
+// build), so at most 8 Pages builds an hour come from here, whatever the
+// triggers do. GitHub allows 10 an hour, which leaves room for deploys.
+export const MIN_GAP_MINUTES = 8;
 
 // YYYY-MM-DD for the UTC day before `now`.
 export const yesterdayUTC = (now) =>
@@ -135,6 +141,12 @@ const main = async () => {
     previous = JSON.parse(await readFile(file, "utf8"));
   } catch {
     // No file yet, or unreadable: fetch yesterday's prices too.
+  }
+
+  const sinceLast = (Date.now() - Date.parse(previous?.fetchedAt)) / 60000;
+  if (sinceLast >= 0 && sinceLast < MIN_GAP_MINUTES) {
+    console.log(`Fetched ${sinceLast.toFixed(1)} min ago; skipping (0 API calls)`);
+    return;
   }
 
   const { prices, calls } = await buildPrices({

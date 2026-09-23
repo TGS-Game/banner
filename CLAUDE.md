@@ -25,15 +25,18 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   (`${PUBLIC_URL}/prices.json`), on load and every 60 seconds, with
   `cache: "no-cache"` (Pages sends `max-age=600`). That costs no API quota.
 - **The file lives on the `gh-pages` branch** (root), not on `main`. The
-  "Update prices" workflow (`.github/workflows/update-prices.yml`) runs every 10
-  minutes (`4-59/10`, off the top of the hour) and on demand. It runs
+  "Update prices" workflow (`.github/workflows/update-prices.yml`) is started
+  every 10 minutes by a Scheduled Task on the VPS (see "Price watchdog"), by
+  GitHub's own `cron` (`4-59/10`) as a backstop, and on demand. It runs
   `scripts/fetch-prices.mjs` on a checkout of `gh-pages`, commits `prices.json`
   if it changed, pushes, then asks GitHub Pages to rebuild (`POST
   /repos/TGS-Game/banner/pages/builds`, because a push with the built-in token
   does not start one).
 - **API calls:** `latest` every run; yesterday's historical rates only when the
   UTC date rolls over (otherwise recovered from the file as price - change). So
-  about 145 calls a day, about 4,400 a month. Each run is 1 call (2 once a day).
+  about 145 calls a day, about 4,400 a month. Each run is 1 call (2 once a day),
+  or 0 when it skips: a run within `MIN_GAP_MINUTES` (8) of the last fetch
+  (`fetchedAt`) does nothing, so two triggers don't double the calls.
   The plan is **Basic Plus** (50,000 a month, prices update every 5 minutes), so
   there is plenty of room; 10 minutes is a deliberate choice, not a limit (the
   prices don't move enough to justify 5). The schedule is the `cron` line.
@@ -50,19 +53,16 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   wins over it). After that a failed, broken or incomplete read keeps the last
   prices. It never shows error or placeholder text.
 - **Secret:** `METALPRICE_API_KEY`, a GitHub Actions repository secret. The code
-  contains no key.
-- **Run it now:** GitHub > Actions > "Update prices" > "Run workflow", or
-  `gh workflow run update-prices.yml -R TGS-Game/banner` then
-  `gh run watch -R TGS-Game/banner`. Each run spends 1-2 API calls.
-- **Schedule caveats: GitHub runs this far less often than every 10 minutes.**
-  The `cron` is right and the workflow is `active`, but GitHub drops most runs.
-  Measured over the first night (2026-09-22/23), 3 runs happened where about 60
-  were due: 19:22 (manual) -> 22:21 -> 00:46 -> 05:17, gaps of 3h 0m, 2h 25m and
-  4h 31m. The runs that do happen start 2-7 minutes after a slot, and all of them
-  succeeded. So **expect prices a few hours old, not the 10-25 minutes first
-  estimated**; that estimate assumed the schedule mostly fires.
-  - Nothing breaks when runs are skipped: the banner keeps showing the last
-    prices. Staleness shows as an old `fetchedAt` in `prices.json`.
+  - **GitHub's schedule alone is not enough.** Over the night of 2026-09-22/23 it
+  ran 3 times where about 60 were due (gaps of 3h 0m, 2h 25m and 4h 31m), so
+  prices went up to 4.5 hours stale. That's why the watchdog triggers the job.
+  The `cron` stays as a backstop in case the VPS is down.
+- **Pages builds (GitHub allows 10 an hour):** a build happens only when a run
+  pushes new prices, and the 8-minute gap means at most 8 an hour from the
+  job whatever triggers it (typically 6, one per watchdog run). That leaves
+  at least 2 an hour for `npm run deploy`. Don't lower `MIN_GAP_MINUTES` or add
+  triggers without redoing this sum.
+s.json`.
   - If the cadence matters, trigger `workflow_dispatch` from a scheduler off
     GitHub (e.g. a Windows Scheduled Task running `gh workflow run`) and treat
     the `cron` as a fallback. Not built; discuss first.
@@ -73,6 +73,61 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   `gh-pages` branch), so `predeploy` runs `scripts/keep-prices.mjs`, which copies
   the current file from `origin/gh-pages` into `build/`. A deploy and a job run
   pushing at the same moment: one push is rejected; re-run it.
+
+## Price watchdog (Windows Scheduled Task on the VPS)
+
+- **What:** Task Scheduler task **"Banner price watchdog"**, as SYSTEM, every 10
+  minutes (minute 1, 11, 21, ...), indefinitely, including after reboots
+  (`StartWhenAvailable` catches up on runs missed while the VPS was off). It
+  runs `C:\ProgramData\BannerWatchdog\price-watchdog.ps1`, a copy of
+  `ops/price-watchdog.ps1` made by `ops/install-watchdog.ps1`. **After editing
+  the script, re-run the installer**, or the task keeps the old copy. The folder
+  is locked to SYSTEM and Administrators.
+- **Each run:**
+  1. Reads the live `prices.json`. Over 45 minutes old = stale -> **one**
+     message to #depot-alerts with the age and a link to the workflow's page
+     (https://github.com/TGS-Game/banner/actions/workflows/update-prices.yml,
+     tap "Run workflow"), and **one** when it recovers. Exception: when rates
+     haven't changed (markets closed) the job keeps the file, so `fetchedAt`
+     stops moving; the watchdog counts that as fresh when gh-pages holds the
+     same file and a run succeeded in the last 45 minutes. 3 failed reads in a
+     row (Pages down) -> one message, one on recovery.
+  2. Triggers the workflow (`POST .../actions/workflows/update-prices.yml/dispatches`,
+     ref `main`). 3 failures in a row, or at once on 401/403/404 (token expired,
+     revoked or lacking access) -> one message, one when it works again.
+  3. 14 days before the token expires -> one reminder.
+  A failed Slack post is retried on the next run. State (what has been alerted)
+  is in `state.json` beside the log.
+- **Secrets:** machine-level environment variables `BANNER_GH_TOKEN` (fine-grained,
+  TGS-Game/banner only, Actions read/write) and `BANNER_SLACK_WEBHOOK`
+  (#depot-alerts), read from the registry on each run. Never print them.
+  **The token expires about 2027-09-23** (made 2026-09-23 with a 1-year expiry;
+  GitHub doesn't report the date for it, so it is set as `$TokenExpires` in the
+  script). To replace it: make a new token with the same scope, paste it into
+  System Properties > Environment Variables > System variables >
+  `BANNER_GH_TOKEN` (keeps it out of shell history), update `$TokenExpires`
+  and re-run the installer. The next run uses it; no restart needed.
+- **Log:** `C:\ProgramData\BannerWatchdog\watchdog.log`, one line per run (UTC),
+  e.g. `check: fetchedAt ..., age 6m, fresh | trigger: ok (204)`. Rotates to
+  `watchdog.log.1` at 1 MB (about 2 months).
+- **Is it running?** In an elevated PowerShell:
+  `Get-ScheduledTaskInfo 'Banner price watchdog'` (LastRunTime, LastTaskResult
+  0, NextRunTime) and
+  `Get-Content C:\ProgramData\BannerWatchdog\watchdog.log -Tail 5`. On GitHub,
+  runs with event `workflow_dispatch` every ~10 minutes:
+  `gh run list -R TGS-Game/banner -w update-prices.yml`.
+- **Trigger by hand:** `Start-ScheduledTask 'Banner price watchdog'` (the whole
+  check + trigger), or just the workflow as in "Run it now" above.
+- **Install / update:** `powershell -ExecutionPolicy Bypass -File ops\install-watchdog.ps1`
+  (elevated). **Remove:** the same with `-Uninstall` (keeps the log and state;
+  delete `C:\ProgramData\BannerWatchdog` to remove those too).
+- **Test without side effects:** `ops\price-watchdog.ps1 -PricesUrl <local file>
+  -StateDir <scratch dir> -NoTrigger -Test` (`-Test` prefixes messages with
+  `[TEST]`, but they are really posted; `-TestBadToken` shows the trigger-failure
+  alert). Without `-NoTrigger` a run starts the workflow (1-2 API calls, a push
+  to gh-pages, a Pages build).
+- **Not covered:** if the VPS itself is down, nothing alerts (the `cron`
+  backstop keeps running, slowly). The alerts only fire from this machine.
 
 ## Layout: row vs carousel
 
@@ -101,7 +156,7 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
 - Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
   `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
-  `PHONE_SLIDE_SPACING` (8). A loop is slides × (hold + transition). The pairs
+  `PHONE_SLIDE_SPACING` (8). A loop is slides Ã— (hold + transition). The pairs
   are `PAIRS` in `prices.js`.
 
 ## Branches: work on `main`
