@@ -95,20 +95,18 @@ s.json`.
      same file and a run succeeded in the last 45 minutes. 3 failed reads in a
      row (Pages down) -> one message, one on recovery.
   2. Triggers the workflow (`POST .../actions/workflows/update-prices.yml/dispatches`,
-     ref `main`). 3 failures in a row, or at once on 401/403/404 (token expired,
-     revoked or lacking access) -> one message, one when it works again.
-  3. 14 days before the token expires -> one reminder.
+     ref `main`). 3 failures in a row, or at once on 401/403/404 (token revoked,
+     broken or lacking access) -> one message, one when it works again. That
+     401 alert is what catches a dead token.
   A failed Slack post is retried on the next run. State (what has been alerted)
   is in `state.json` beside the log.
 - **Secrets:** machine-level environment variables `BANNER_GH_TOKEN` (fine-grained,
   TGS-Game/banner only, Actions read/write) and `BANNER_SLACK_WEBHOOK`
   (#depot-alerts), read from the registry on each run. Never print them.
-  **The token expires about 2027-09-23** (made 2026-09-23 with a 1-year expiry;
-  GitHub doesn't report the date for it, so it is set as `$TokenExpires` in the
-  script). To replace it: make a new token with the same scope, paste it into
-  System Properties > Environment Variables > System variables >
-  `BANNER_GH_TOKEN` (keeps it out of shell history), update `$TokenExpires`
-  and re-run the installer. The next run uses it; no restart needed.
+  **The token never expires.** To replace it (revoked or broken): make a new
+  token with the same scope, paste it into System Properties > Environment
+  Variables > System variables > `BANNER_GH_TOKEN` (keeps it out of shell
+  history). The next run uses it; no restart or reinstall needed.
 - **Log:** `C:\ProgramData\BannerWatchdog\watchdog.log`, one line per run (UTC),
   e.g. `check: fetchedAt ..., age 6m, fresh | trigger: ok (204)`. Rotates to
   `watchdog.log.1` at 1 MB (about 2 months).

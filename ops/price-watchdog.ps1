@@ -1,11 +1,11 @@
-﻿# Banner price watchdog. Run every 10 minutes by the Windows Scheduled Task
+# Banner price watchdog. Run every 10 minutes by the Windows Scheduled Task
 # "Banner price watchdog" (as SYSTEM; installed by ops/install-watchdog.ps1).
 # Each run:
 #
 #   1. Checks prices.json on the live site. If it is over 45 minutes old, posts
 #      once to #depot-alerts, and once more when it recovers.
 #   2. Triggers the "Update prices" workflow (workflow_dispatch). If that fails
-#      3 times in a row, or at once on 401/403/404 (token expired, revoked or
+#      3 times in a row, or at once on 401/403/404 (token revoked, broken or
 #      lacking access), posts once to #depot-alerts, and once when it works again.
 #
 # Old prices are fine when the rates really haven't changed (markets closed):
@@ -41,12 +41,9 @@ $Workflow = 'update-prices.yml'
 $RunWorkflowUrl = "https://github.com/$Repo/actions/workflows/$Workflow"
 $StaleMinutes = 45
 $FailuresBeforeAlert = 3
-# The token's expiry, as set when it was created. GitHub doesn't report it for
-# this token, so a reminder is posted this many days before.
-$TokenExpires = [DateTime]::SpecifyKind([DateTime]'2027-09-23', 'Utc')
-$ExpiryReminderDays = 14
 $MaxLogBytes = 1MB
 
+if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Path $StateDir | Out-Null }
 $LogFile = Join-Path $StateDir 'watchdog.log'
 $StateFile = Join-Path $StateDir 'state.json'
 
@@ -62,7 +59,6 @@ function Hide-Secrets([string]$Text) {
 }
 
 function Write-Log([string]$Message) {
-    if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Path $StateDir | Out-Null }
     if ((Test-Path $LogFile) -and (Get-Item $LogFile).Length -gt $MaxLogBytes) {
         Move-Item $LogFile "$LogFile.1" -Force
     }
@@ -119,7 +115,7 @@ function Send-Slack([string]$Text) {
 
 function Read-State {
     $state = @{ stale = $false; staleSince = $null; checkFailures = 0; checkAlerted = $false
-        triggerFailures = 0; triggerAlerted = $false; expiryReminded = $false }
+        triggerFailures = 0; triggerAlerted = $false }
     if (Test-Path $StateFile) {
         try {
             $saved = Get-Content $StateFile -Raw | ConvertFrom-Json
@@ -230,7 +226,7 @@ if ($NoTrigger) {
             $why = "HTTP $($r.Status)"
             if ($r.Status -eq 0) { $why = "no answer from GitHub: $(Hide-Secrets $r.Error)" }
             if ($tokenProblem) {
-                $why += ': BANNER_GH_TOKEN has probably expired, been revoked or lost Actions write on ' +
+                $why += ': BANNER_GH_TOKEN has probably been revoked, changed or lost Actions write on ' +
                     "$Repo. Make a new fine-grained token and set it on the VPS (see CLAUDE.md)"
             }
             $state.triggerAlerted = Send-Slack (":rotating_light: *Banner watchdog can't trigger the price update* " +
@@ -238,15 +234,6 @@ if ($NoTrigger) {
                 "schedule is the only trigger left.`nRun it by hand: $RunWorkflowUrl")
         }
     }
-}
-
-# ---- 3. Token expiry reminder ---------------------------------------------
-
-$daysLeft = ($TokenExpires - $now).TotalDays
-if ($daysLeft -le $ExpiryReminderDays -and -not $state.expiryReminded) {
-    $state.expiryReminded = Send-Slack (":hourglass: *BANNER_GH_TOKEN expires $($TokenExpires.ToString('yyyy-MM-dd'))* " +
-        "($([int][Math]::Ceiling($daysLeft)) days). Make a new one (TGS-Game/banner only, Actions read/write) " +
-        "and set it on the VPS before then, or the banner's prices will go stale. Steps in CLAUDE.md.")
 }
 
 $state | ConvertTo-Json | Set-Content -Path $StateFile -Encoding UTF8
