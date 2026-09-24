@@ -32,6 +32,12 @@ const PAIRS = [
 const PRICES_URL = `${process.env.PUBLIC_URL}/prices.json`;
 const REFRESH_MS = 60000;
 
+// Two decimals with a thousands comma: 4290.06 -> "4,290.06".
+const money = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 // The file's metals, if all four are there with numbers; otherwise null.
 const readMetals = (data) => {
   const metals = data?.metals;
@@ -75,7 +81,7 @@ const Prices = () => {
   // Format text like: “+2.50 (+1.22%)” or “-1.75 (-0.99%)”
   const formatChange = ({ change, changePercent }) => {
     const sign = change >= 0 ? "+" : "";
-    return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
+    return `${sign}${money.format(change)} (${sign}${changePercent.toFixed(2)}%)`;
   };
 
   // One metal: icon, name, price and the change since yesterday. The phone
@@ -86,7 +92,7 @@ const Prices = () => {
       <div className="metalItem" key={symbol}>
         <img src={icon} alt={`${name} icon`} className="metalIcon" />
         <span className="metalName">{name}</span>
-        <span className="price">${metal.price.toFixed(2)}</span>
+        <span className="price">${money.format(metal.price)}</span>
         <span className={`${getClassName(metal.change)} changeAmount`}>
           {formatChange(metal)}
         </span>

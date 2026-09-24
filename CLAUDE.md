@@ -42,7 +42,8 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   prices don't move enough to justify 5). The schedule is the `cron` line.
 - **File format:** `fetchedAt`, `ratesAt` (the API's timestamp), `yesterdayDate`
   (UTC), and `metals.{XAU,XAG,XPT,XPD}.{price, change, changePercent}`: the same
-  sums the banner used to do. The banner formats them with `toFixed(2)`.
+  sums the banner used to do. The banner formats them with two decimals and
+  a thousands comma (`Intl.NumberFormat("en-US")`, `money` in `prices.js`).
 - **Checks before writing:** all four metals present, numeric and within a sane
   range (`RANGES` in the script), a move of at most 25% since yesterday, and
   rates at most 4 days old. On any failure nothing is written (the last good
@@ -132,7 +133,7 @@ s.json`.
 ## Layout: row vs carousel
 
 - Wide screens show the original one-row banner, 24px tall. When the four metals
-  don't fit on one row (measured at runtime; about 1048px with typical prices), it
+  don't fit on one row (measured at runtime; about 1070px with typical prices), it
   switches to a carousel. With "reduce motion" on, slides fade instead of sliding.
 - **24px carousel** (the page is too narrow for the row, but not a phone frame):
   two metals at a time, Gold + Silver then Platinum + Palladium, sliding left on
@@ -152,7 +153,11 @@ s.json`.
   (0 is League Spartan's widest digit; realistic caps are Gold/Platinum
   $9999.99, Palladium $4999.99, Silver $199.99). The formula's constants
   assume the icon, margin and `PHONE_SLIDE_SPACING` values: update them together.
-  Prices render with `toFixed(2)`, so no thousands comma.
+  Prices render with a thousands comma (`$2,000.00`), which the formula does
+  not count: the two commas add ~8.7px (277.25px of text, not 268.53). Left
+  that way on purpose (2026-09-24): at the caps the JS `scale` shrinks the
+  slide by at most ~1.7% below 391px (0.3% at 390); today's prices still fit
+  the formula, full size from 386px.
 - Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
   `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
