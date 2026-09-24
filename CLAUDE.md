@@ -166,12 +166,14 @@ s.json`.
 
 ## Branches: work on `main`
 
-- **`main` is the live branch.** Deployed 2026-09-22: `gh-pages` `be793fd` =
-  build of `63657c4` (prices from the scheduled job, no API calls in the
-  browser): live serves `main.9bccde13.js`, `main.f3ffac55.css` and
-  `206.966e2417.chunk.js`, and no `.map` files. `prices.json` sits beside them,
-  committed by the job, and survived this deploy (`keep-prices`). History:
-  2026-09-18 `gh-pages` `eb71b14` =
+- **`main` is the live branch.** Deployed 2026-09-24: `gh-pages` `49b61a7` =
+  build of `389baf6` (prices with a thousands comma): live serves
+  `main.5ace8f70.js`, `main.5b082651.css` and `206.966e2417.chunk.js`, and no
+  `.map` files. `prices.json` sits beside them, committed by the job, and
+  survived this deploy (`keep-prices`). History: 2026-09-22 `gh-pages`
+  `be793fd` = build of `63657c4` (prices from the scheduled job, no API calls
+  in the browser): `main.9bccde13.js`, `main.f3ffac55.css` and
+  `206.966e2417.chunk.js`; 2026-09-18 `gh-pages` `eb71b14` =
   build of `9abaeb7` (40px phone pairs): `main.fa2023fd.js`,
   `main.22f1760a.css` and `453.df2d0003.chunk.js`; earlier 2026-09-18
   `gh-pages` `1353be1` = build of `1fe617e` (one-metal phone layout;
