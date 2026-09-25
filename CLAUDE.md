@@ -133,8 +133,15 @@ s.json`.
 ## Layout: row vs carousel
 
 - Wide screens show the original one-row banner, 24px tall. When the four metals
-  don't fit on one row (measured at runtime; about 1070px with typical prices), it
-  switches to a carousel. With "reduce motion" on, slides fade instead of sliding.
+  don't fit on one row (measured at runtime; about 1034px with typical prices,
+  about 1059px at the realistic caps), it switches to a carousel. With "reduce
+  motion" on, slides fade instead of sliding.
+- **Fonts:** all banner text is League Spartan SemiBold (600) except the prices,
+  which are Regular (400), on desktop and phones. `Prices.css` loads exactly
+  those two weights from Google Fonts (`wght@400;600`); a weight used but not
+  loaded falls back to the nearest loaded one (600 rendered as 700 before it
+  was added). `.banner` sets `line-height: 16px`: League Spartan's own is 12px,
+  which would make the desktop banner 20px tall instead of 24px.
 - **24px carousel** (the page is too narrow for the row, but not a phone frame):
   two metals at a time, Gold + Silver then Platinum + Palladium, sliding left on
   a loop. Each pair holds 6s (13.4s loop).
@@ -153,11 +160,14 @@ s.json`.
   (0 is League Spartan's widest digit; realistic caps are Gold/Platinum
   $9999.99, Palladium $4999.99, Silver $199.99). The formula's constants
   assume the icon, margin and `PHONE_SLIDE_SPACING` values: update them together.
-  Prices render with a thousands comma (`$2,000.00`), which the formula does
-  not count: the two commas add ~8.7px (277.25px of text, not 268.53). Left
-  that way on purpose (2026-09-24): at the caps the JS `scale` shrinks the
-  slide by at most ~1.7% below 391px (0.3% at 390); today's prices still fit
-  the formula, full size from 386px.
+  The formula's 268.53px is that slide's text measured when names and prices
+  were Bold (700). Since 2026-09-25 (SemiBold names, Regular prices) the same
+  text is 261.22px, or 269.53px with the thousands commas prices render with
+  (`$2,000.00`), so 268.53 is kept: the displayed slide fits it to within the
+  measuring slack, the JS `scale` is not needed at any width from 320 up
+  (checked at the caps and at `$2,000.00`), and text is full size from 386px.
+  (With Bold it was 277.25px with commas and the `scale` shrank the slide by
+  up to ~1.7% below 391px.)
 - Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
   `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and

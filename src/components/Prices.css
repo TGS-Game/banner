@@ -1,5 +1,7 @@
-/* 1) (Optional) Import Google fonts if you want them for the banner text */
-@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=League+Spartan:wght@400;700&display=swap");
+/* 1) League Spartan, the banner's font: SemiBold (600) for all text, Regular
+   (400) for the prices. Load every weight used here, or the browser picks the
+   nearest loaded one (or fakes it) instead. */
+@import url("https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600&display=swap");
 
 /* 2) Fixed banner at the top */
 .banner {
@@ -16,8 +18,10 @@
 
   background-color: #f4efe8; /* Light cream color */
   color: #333;
-  font-family: Arial, sans-serif;
+  font-family: 'League Spartan', sans-serif;
+  font-weight: 600;
   font-size: 12px;
+  line-height: 16px; /* League Spartan's own is 12px; this keeps the banner 24px tall */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 
   /* Increased gap for more horizontal space between items */
@@ -40,17 +44,14 @@
   object-fit: cover;
 }
 
-/* Metal name (DM Serif Display if loaded) */
+/* Metal name */
 .metalName {
-  font-family: 'DM Serif Display', serif;
   text-transform: uppercase;
-  font-weight: 400;
 }
 
-/* Price (League Spartan if loaded) */
+/* Price: the one text that is Regular */
 .price {
-  font-family: 'League Spartan', sans-serif;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 /* Positive/negative changes */
@@ -133,9 +134,13 @@
    (frames from about 386px wide), and shrinks smoothly with the frame below
    that so it still fits. --phone-text is that scale, as px per 1px of design
    size. The widest slide at realistic maximums is PLATINUM $2000.00 +
-   PALLADIUM $2000.00 (0 is the widest digit): 268.53px of text at design size,
-   117px of the rest (banner padding 16, icons 2 x 22, their margins 2 x 5, name
-   margins 2 x 9, PHONE_SLIDE_SPACING 3 x 8, measuring slack 2 + 3). */
+   PALLADIUM $2000.00 (0 is the widest digit): 268.53px of text at design size
+   when names and prices were Bold (700), 117px of the rest (banner padding 16,
+   icons 2 x 22, their margins 2 x 5, name margins 2 x 9, PHONE_SLIDE_SPACING
+   3 x 8, measuring slack 2 + 3). With SemiBold names and Regular prices the
+   same text is 261.22px, or 269.53px as shown with thousands commas
+   ($2,000.00), so 268.53 is kept: it fits the slide as displayed to within the
+   slack. */
 .bannerPhone {
   box-sizing: border-box;
   --phone-text: calc((100vw - 117px) / 268.53);
@@ -143,7 +148,6 @@
 .bannerPhone .carouselPair > .metalItem {
   gap: 0;
   color: #121d30;
-  font-family: 'League Spartan', sans-serif;
 }
 .bannerPhone .carouselPair .metalIcon {
   width: 22px;
@@ -151,9 +155,7 @@
   margin-right: 5px;
 }
 .bannerPhone .carouselPair .metalName {
-  font-family: inherit;
   font-size: min(14px, calc(var(--phone-text) * 14));
-  font-weight: 700;
   margin-right: 9px;
 }
 .bannerPhone .carouselPair .price {
