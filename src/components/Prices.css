@@ -54,6 +54,18 @@
   font-weight: 400;
 }
 
+/* League Spartan draws its capitals and digits above the middle of the line
+   box (the box itself is centred), so the text is nudged down to centre the
+   ink on the icons and the banner: 2px in the 24px banner (row and carousel).
+   The phone and tablet layouts use their own amounts (sections 4 and 5).
+   Measured on the capitals and digits, not the $ or brackets. */
+.metalName,
+.price,
+.changeAmount {
+  position: relative;
+  top: 2px;
+}
+
 /* Positive/negative changes */
 .changeNegative {
   color: red;
@@ -126,7 +138,7 @@
   }
 }
 
-/* 4) Phones: in frames at most 768px wide and at least PHONE_BANNER_HEIGHT
+/* 4) Phones: in frames under 768px wide and at least PHONE_BANNER_HEIGHT
    tall (PriceCarousel.js, which adds .bannerPhone and sets the height), the
    carousel's pairs are styled after design/mobile-banner.png: icon in a filled
    circle, name, price. No daily change.
@@ -145,11 +157,13 @@
   box-sizing: border-box;
   --phone-text: calc((100vw - 117px) / 268.53);
 }
-.bannerPhone .carouselPair > .metalItem {
+.bannerPhone .carouselPair > .metalItem,
+.tabletRow > .metalItem {
   gap: 0;
   color: #121d30;
 }
-.bannerPhone .carouselPair .metalIcon {
+.bannerPhone .carouselPair .metalIcon,
+.tabletRow .metalIcon {
   width: 22px;
   height: 22px;
   margin-right: 5px;
@@ -161,6 +175,48 @@
 .bannerPhone .carouselPair .price {
   font-size: min(15px, calc(var(--phone-text) * 15));
 }
-.bannerPhone .carouselPair .changeAmount {
+.bannerPhone .carouselPair .changeAmount,
+.tabletRow .changeAmount {
   display: none;
+}
+/* Centring the ink (see section 2): names 1.5px, prices 1px. Within 0.75px
+   at 1x and 2x, at every phone text size (half a pixel at most). */
+.bannerPhone .carouselPair .metalName,
+.tabletRow .metalName {
+  top: 1.5px;
+}
+.bannerPhone .carouselPair .price,
+.tabletRow .price {
+  top: 1px;
+}
+
+/* 5) Tablets: in frames at least 768px wide and at least TABLET_BANNER_HEIGHT
+   tall, when the full row doesn't fit (PriceCarousel.js, which adds
+   .bannerTablet and sets the height), all four metals sit in one row, spread
+   evenly, styled like the phone layout (icon, name, price, no daily change;
+   the icon and colour rules are shared with section 4). Nothing rotates.
+   The text is always the phone's full 14px name / 15px price: at realistic
+   maximums (GOLD $9,999.99, SILVER $199.99, PLATINUM $9,999.99, PALLADIUM
+   $4,999.99) the row is about 602px, or 612px with 0, the widest digit, in
+   every place, so at 768px there are still about 150px to spare. */
+.bannerTablet {
+  box-sizing: border-box;
+}
+.tabletRow {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+}
+.tabletRow > .metalItem {
+  flex: none;
+  white-space: nowrap;
+}
+.tabletRow .metalName {
+  font-size: 14px;
+  margin-right: 9px;
+}
+.tabletRow .price {
+  font-size: 15px;
 }

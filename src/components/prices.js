@@ -5,6 +5,7 @@ import PriceCarousel, {
   CAROUSEL_HOLD_MS,
   PHONE_CAROUSEL_HOLD_MS,
   PHONE_BANNER_HEIGHT,
+  TABLET_BANNER_HEIGHT,
 } from "./PriceCarousel";
 
 // Replace these icon imports with your actual icon paths:
@@ -22,6 +23,7 @@ const METALS = [
 ];
 
 // Narrow screens, phones included, show two metals at a time (indexes into METALS).
+// Tablets show all four in one row instead.
 const PAIRS = [
   [0, 1], // Gold + Silver
   [2, 3], // Platinum + Palladium
@@ -85,7 +87,7 @@ const Prices = () => {
   };
 
   // One metal: icon, name, price and the change since yesterday. The phone
-  // layout hides the change (see Prices.css section 4).
+  // and tablet layouts hide the change (see Prices.css sections 4 and 5).
   const renderMetal = ({ symbol, name, icon }) => {
     const metal = metals[symbol];
     return (
@@ -101,27 +103,39 @@ const Prices = () => {
   };
 
   // Wide screens show one row; when it doesn't fit, a carousel of pairs, which
-  // phones show in their own, taller layout.
+  // phones show in their own, taller layout. Tablets, also taller, show all
+  // four metals in one row without the change, instead of the carousel.
   const bannerRef = useRef(null);
   const layout = useCarouselLayout(bannerRef);
   const bannerClass =
     "banner" +
     (layout.carousel ? " bannerCarousel" : "") +
     (layout.phone ? " bannerPhone" : "") +
+    (layout.tablet ? " bannerTablet" : "") +
     // Before the first prices arrive: an empty strip, no text, same height.
     (metals ? "" : " bannerEmpty");
 
   return (
     <div
       className={bannerClass}
-      style={layout.phone ? { height: PHONE_BANNER_HEIGHT } : undefined}
+      style={
+        layout.phone
+          ? { height: PHONE_BANNER_HEIGHT }
+          : layout.tablet
+          ? { height: TABLET_BANNER_HEIGHT }
+          : undefined
+      }
       ref={bannerRef}
     >
       {metals && (
         <>
           {METALS.map(renderMetal)}
 
-          {layout.carousel && (
+          {layout.tablet && (
+            <div className="tabletRow">{METALS.map(renderMetal)}</div>
+          )}
+
+          {layout.carousel && !layout.tablet && (
             <PriceCarousel
               slides={PAIRS.map((pair) => pair.map((i) => renderMetal(METALS[i])))}
               scale={layout.scale}

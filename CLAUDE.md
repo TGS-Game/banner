@@ -134,18 +134,31 @@ s.json`.
 
 - Wide screens show the original one-row banner, 24px tall. When the four metals
   don't fit on one row (measured at runtime; about 1034px with typical prices,
-  about 1059px at the realistic caps), it switches to a carousel. With "reduce
-  motion" on, slides fade instead of sliding.
+  about 1059px at the realistic caps), it switches to the tablet row (frames
+  768px+ wide and 40px+ tall), the phone carousel (under 768px, 40px+ tall) or,
+  in shorter frames, the 24px carousel. With "reduce motion" on, carousel
+  slides fade instead of sliding.
+- **Bands**, as the site's iframe should be sized: phones under 768px = 40px,
+  tablets 768-1034px = 40px, desktop above = 24px. In a frame shorter than
+  40px, phones and tablets fall back to the 24px carousel (nothing clips).
 - **Fonts:** all banner text is League Spartan SemiBold (600) except the prices,
   which are Regular (400), on desktop and phones. `Prices.css` loads exactly
   those two weights from Google Fonts (`wght@400;600`); a weight used but not
   loaded falls back to the nearest loaded one (600 rendered as 700 before it
   was added). `.banner` sets `line-height: 16px`: League Spartan's own is 12px,
   which would make the desktop banner 20px tall instead of 24px.
+- **Vertical centring:** the line boxes are centred, but League Spartan draws
+  capitals and digits above the middle of them, so the text is nudged down
+  (`position: relative; top`) to centre its ink on the icons and the banner:
+  2px in the 24px banner (row and carousel; names, prices and the change),
+  1.5px names / 1px prices in the phone and tablet layouts. Measured
+  2026-10-02 from screenshot pixels on the capitals and digits (not `$` or
+  brackets): within half a pixel at 1x and 2x in all three bands (0.75px at
+  one shrunken phone size; was 1.5-2px high everywhere). Re-measure if the font, sizes or `line-height` change.
 - **24px carousel** (the page is too narrow for the row, but not a phone frame):
   two metals at a time, Gold + Silver then Platinum + Palladium, sliding left on
   a loop. Each pair holds 6s (13.4s loop).
-- **Phone layout**: in a frame at most 768px wide and at least
+- **Phone layout**: in a frame under 768px wide (`max-width: 767.98px`) and at least
   `PHONE_BANNER_HEIGHT` (40px) tall the banner is that height and the carousel
   shows the same **pairs** (Gold + Silver, Platinum + Palladium), styled after
   `design/mobile-banner.png`: 22px icon in a filled circle, name, price. **No
@@ -154,6 +167,18 @@ s.json`.
   (no media query), so the height is one setting.
   thegoldstandard.com's phone iframe is 80px tall; it must be set to 40px or
   the frame shows 40px of blank space under the banner.
+- **Tablet layout** (since 2026-10-02): in a frame at least 768px wide and at
+  least `TABLET_BANNER_HEIGHT` (40px) tall, when the row doesn't fit, all four
+  metals sit in **one row, spread evenly, nothing rotates**, styled like the
+  phone layout (22px icon, 14px name, 15px price, **no daily change**). JS adds
+  `bannerTablet` and the height and renders `.tabletRow` instead of the
+  carousel; `Prices.css` section 5 (sharing section 4's icon/colour rules).
+  Text is always full size: at the caps the row is about 602px (612px with 0
+  in every digit), leaving 27-30px gaps at 768px. Before the first prices,
+  when there is no row to measure, `ROW_MIN_WIDTH` (1035) decides whether the
+  empty strip gets the tablet height. The site's iframe must be 40px up to
+  1034px wide for this to show (it was 20px above 768px on 2026-09-25); until
+  then those widths keep the 24px carousel.
 - Phone text is 14px name / 15px price from a ~386px-wide frame up, and shrinks
   smoothly (vw-based, `--phone-text` in `Prices.css`) below that so the widest
   realistic slide still fits: `PLATINUM $2000.00` + `PALLADIUM $2000.00`
@@ -169,9 +194,10 @@ s.json`.
   (With Bold it was 277.25px with commas and the `scale` shrank the slide by
   up to ~1.7% below 391px.)
 - Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
+  `TABLET_BANNER_HEIGHT` (40), `ROW_MIN_WIDTH` (1035, empty strip only),
   `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
-  `PHONE_SLIDE_SPACING` (8). A loop is slides Ã— (hold + transition). The pairs
+  `PHONE_SLIDE_SPACING` (8). A loop is slides x (hold + transition). The pairs
   are `PAIRS` in `prices.js`.
 
 ## Branches: work on `main`
