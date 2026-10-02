@@ -132,12 +132,23 @@ s.json`.
 
 ## Layout: row vs carousel
 
-- Wide screens show the original one-row banner, 24px tall. When the four metals
-  don't fit on one row (measured at runtime; about 1034px with typical prices,
-  about 1059px at the realistic caps), it switches to the tablet row (frames
-  768px+ wide and 40px+ tall), the phone carousel (under 768px, 40px+ tall) or,
-  in shorter frames, the 24px carousel. With "reduce motion" on, carousel
-  slides fade instead of sliding.
+- Wide screens show the original one-row banner, 24px tall. Frames 768-1034px
+  wide and 40px+ tall always get the tablet row, and frames under 768px wide and
+  40px+ tall the phone carousel. Otherwise the row is measured at runtime and,
+  when the four metals don't fit on one row, the 24px carousel takes over. With
+  "reduce motion" on, carousel slides fade instead of sliding.
+- **Row width** (since 2026-10-02, `gap: 3rem` = 48px between metals, was
+  5rem): 941px with the prices of 2026-10-02; at the realistic caps (Gold and
+  Platinum $9,999.99, Silver $199.99, Palladium $4,999.99) 979px with a 1.5%
+  daily move, 991px with 5%, 1014px with 10% (1026px with 0 in every digit).
+  So it fits a 1035px page less a Windows scrollbar (1018px). With 80px gaps
+  it was 1037px today and 1075-1110px at the caps.
+- **Re-measuring** (fixed 2026-10-02): `useCarouselLayout` measures after every
+  render, on `resize`, and on any size change of the banner or a metal
+  (`ResizeObserver`), and never shrinks the slides below `MIN_SCALE` (0.5).
+  Before, WebKit could measure before `Prices.css` (held up by its font
+  `@import`) applied: the slides got `scale(0.002)` and the banner stayed blank,
+  or wide pages kept the carousel, until the frame was resized.
 - **Bands**, as the site's iframe should be sized: phones under 768px = 40px,
   tablets 768-1034px = 40px, desktop above = 24px. In a frame shorter than
   40px, phones and tablets fall back to the 24px carousel (nothing clips).
@@ -167,16 +178,16 @@ s.json`.
   (no media query), so the height is one setting.
   thegoldstandard.com's phone iframe is 80px tall; it must be set to 40px or
   the frame shows 40px of blank space under the banner.
-- **Tablet layout** (since 2026-10-02): in a frame at least 768px wide and at
-  least `TABLET_BANNER_HEIGHT` (40px) tall, when the row doesn't fit, all four
+- **Tablet layout** (since 2026-10-02): in a frame 768-1034px wide
+  (`TABLET_QUERY`) and at least `TABLET_BANNER_HEIGHT` (40px) tall, whether or
+  not the full row would fit (it often does from about 941px), all four
   metals sit in **one row, spread evenly, nothing rotates**, styled like the
   phone layout (22px icon, 14px name, 15px price, **no daily change**). JS adds
   `bannerTablet` and the height and renders `.tabletRow` instead of the
   carousel; `Prices.css` section 5 (sharing section 4's icon/colour rules).
   Text is always full size: at the caps the row is about 602px (612px with 0
-  in every digit), leaving 27-30px gaps at 768px. Before the first prices,
-  when there is no row to measure, `ROW_MIN_WIDTH` (1035) decides whether the
-  empty strip gets the tablet height. The site's iframe must be 40px up to
+  in every digit), leaving 27-30px gaps at 768px. The empty strip before the
+  first prices gets the tablet height from the same query. The site's iframe must be 40px up to
   1034px wide for this to show (it was 20px above 768px on 2026-09-25); until
   then those widths keep the 24px carousel.
 - Phone text is 14px name / 15px price from a ~386px-wide frame up, and shrinks
@@ -194,7 +205,7 @@ s.json`.
   (With Bold it was 277.25px with commas and the `scale` shrank the slide by
   up to ~1.7% below 391px.)
 - Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
-  `TABLET_BANNER_HEIGHT` (40), `ROW_MIN_WIDTH` (1035, empty strip only),
+  `TABLET_BANNER_HEIGHT` (40, and `TABLET_QUERY`'s 768-1034px band),
   `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
   `PHONE_SLIDE_SPACING` (8). A loop is slides x (hold + transition). The pairs

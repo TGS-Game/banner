@@ -15,19 +15,19 @@ const PHONE_QUERY = `(max-width: 767.98px) and (min-height: ${PHONE_BANNER_HEIGH
 
 // Height (px) of the tablet banner. The tablet layout (section 5 of Prices.css,
 // class `bannerTablet`) shows all four metals in one row, styled like the phone
-// layout, with no carousel. It is used in frames from 768px wide and at least
-// this tall when the full row doesn't fit; shorter frames keep the 24px carousel.
+// layout, with no carousel. It is used in frames 768-1034px wide (the site's
+// tablet band, where its frame is 40px) and at least this tall, whether or not
+// the full row would fit; shorter frames get the row or the 24px carousel.
 export const TABLET_BANNER_HEIGHT = 40;
-const TABLET_QUERY = `(min-width: 768px) and (min-height: ${TABLET_BANNER_HEIGHT}px)`;
-// The full row needs about 1034px with typical prices. Only used before the
-// first prices arrive, when there is no row to measure, to pick the empty
-// strip's height.
-const ROW_MIN_WIDTH = 1035;
+const TABLET_QUERY = `(min-width: 768px) and (max-width: 1034.98px) and (min-height: ${TABLET_BANNER_HEIGHT}px)`;
 
 // Space (px, before any scaling) kept either side of and between the metals on
 // a slide; the phone layout's is tighter (Prices.css section 4 counts on it).
 const SLIDE_SPACING = 12;
 const PHONE_SLIDE_SPACING = 8;
+// The least the slides are ever shrunk (see `scale` in useCarouselLayout).
+// The most real slides need is 0.663 (the 24px carousel in a 320px frame).
+const MIN_SCALE = 0.5;
 
 // Timing of one full loop through `count` slides, each held for `hold` ms.
 const loopTiming = (count, hold) => {
@@ -81,11 +81,11 @@ const fadeKeyframes = (count, hold, index) => {
 
 // Decides between the one-row banner and the carousel by measuring the row
 // (and whether the frame gets the phone or tablet layout, see PHONE_QUERY and
-// TABLET_QUERY; the tablet layout replaces the carousel):
+// TABLET_QUERY; tablet frames always get the tablet layout, in place of both):
 // the carousel is used when the four metals' natural widths, plus the banner's
-// gaps and padding, are wider than the page. Re-measures when prices, fonts or
-// the page size change. `scale` shrinks the slides only if the widest pair
-// would not otherwise fit (a safety net; the CSS sizes normally fit).
+// gaps and padding, are wider than the page. Re-measures when prices, fonts,
+// styles or the page size change. `scale` shrinks the slides only if the widest
+// pair would not otherwise fit (a safety net; the CSS sizes normally fit).
 export const useCarouselLayout = (bannerRef) => {
   const [layout, setLayout] = useState({
     carousel: false,
@@ -96,14 +96,12 @@ export const useCarouselLayout = (bannerRef) => {
 
   const measure = useCallback(() => {
     const phone = window.matchMedia(PHONE_QUERY).matches;
-    const tabletFrame = window.matchMedia(TABLET_QUERY).matches;
+    const tablet = window.matchMedia(TABLET_QUERY).matches;
     const banner = bannerRef.current;
     const items = banner ? [...banner.querySelectorAll(":scope > .metalItem")] : [];
     if (!items.length) {
       // Before the first prices: no row to measure, but the phone and tablet
       // heights still apply.
-      const tablet =
-        tabletFrame && document.documentElement.clientWidth < ROW_MIN_WIDTH;
       setLayout((prev) =>
         prev.phone === phone && prev.tablet === tablet
           ? prev
@@ -119,8 +117,8 @@ export const useCarouselLayout = (bannerRef) => {
       items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) +
       gap * (items.length - 1) +
       padding;
-    const carousel = rowWidth > document.documentElement.clientWidth;
-    const tablet = carousel && tabletFrame;
+    // The tablet layout also hides the row (see `.bannerCarousel > .metalItem`).
+    const carousel = tablet || rowWidth > document.documentElement.clientWidth;
 
     // Measure the slides as laid out (offsetWidth ignores the scale transform).
     let scale = 1;
@@ -135,6 +133,9 @@ export const useCarouselLayout = (bannerRef) => {
         )
       );
       scale = Math.min(1, Math.floor((track.clientWidth / slideWidth) * 1000) / 1000);
+      // A measure taken before the styles apply can come out near 0, which
+      // draws nothing; real slides never need much shrinking.
+      scale = Math.max(MIN_SCALE, scale);
     }
 
     setLayout((prev) =>
@@ -147,15 +148,39 @@ export const useCarouselLayout = (bannerRef) => {
     );
   }, [bannerRef]);
 
-  useLayoutEffect(() => measure());
+  // Re-measures when the frame resizes, and whenever the banner or any metal
+  // changes size however that happens: fonts loading, or the stylesheet
+  // applying after the first measure (WebKit can run this before Prices.css,
+  // waiting on its font @import, applies; that measure shrank the slides to
+  // nothing and, with no later resize, the banner stayed blank).
+  const observer = useRef(null);
   useLayoutEffect(() => {
+    let frame = 0;
+    if (typeof ResizeObserver !== "undefined") {
+      // In the next frame, so a measure never resizes what is being observed
+      // within the same observation.
+      observer.current = new ResizeObserver(() => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(measure);
+      });
+    }
     window.addEventListener("resize", measure);
-    document.fonts?.addEventListener("loadingdone", measure);
     return () => {
+      cancelAnimationFrame(frame);
+      observer.current?.disconnect();
+      observer.current = null;
       window.removeEventListener("resize", measure);
-      document.fonts?.removeEventListener("loadingdone", measure);
     };
   }, [measure]);
+  // After every render: measure, and watch the elements now on screen.
+  useLayoutEffect(() => {
+    measure();
+    const banner = bannerRef.current;
+    if (!observer.current || !banner) return;
+    observer.current.disconnect();
+    observer.current.observe(banner);
+    banner.querySelectorAll(".metalItem").forEach((item) => observer.current.observe(item));
+  });
 
   return layout;
 };

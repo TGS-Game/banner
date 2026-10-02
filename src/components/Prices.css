@@ -24,8 +24,11 @@
   line-height: 16px; /* League Spartan's own is 12px; this keeps the banner 24px tall */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 
-  /* Increased gap for more horizontal space between items */
-  gap: 5rem; /* <- Change this number if you want more or less spacing */
+  /* Space between the metals. 3rem (48px) lets the one row fit a 1018px frame
+     (a 1035px page less a Windows scrollbar) at realistic maximums (GOLD and
+     PLATINUM $9,999.99, SILVER $199.99, PALLADIUM $4,999.99) with a 10% daily
+     move: 1014px. Wider gaps put the carousel back above 1034px. */
+  gap: 3rem;
   padding: 0.25rem 0.5rem;
 }
 
@@ -190,9 +193,10 @@
   top: 1px;
 }
 
-/* 5) Tablets: in frames at least 768px wide and at least TABLET_BANNER_HEIGHT
-   tall, when the full row doesn't fit (PriceCarousel.js, which adds
-   .bannerTablet and sets the height), all four metals sit in one row, spread
+/* 5) Tablets: in frames 768-1034px wide and at least TABLET_BANNER_HEIGHT
+   tall (PriceCarousel.js, which adds .bannerTablet and sets the height; the
+   full row would often fit there too, but these frames get this layout
+   whatever the prices), all four metals sit in one row, spread
    evenly, styled like the phone layout (icon, name, price, no daily change;
    the icon and colour rules are shared with section 4). Nothing rotates.
    The text is always the phone's full 14px name / 15px price: at realistic
