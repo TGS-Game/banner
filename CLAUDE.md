@@ -213,15 +213,19 @@ s.json`.
 
 ## Branches: work on `main`
 
-- **`main` is the live branch.** Deployed 2026-10-02: `gh-pages` `b2e4729` =
-  build of `8874661` (tablet row of four metals, text ink centred in every
-  band): live serves `main.c0e39b25.js`, `main.67b3e266.css` and
-  `206.966e2417.chunk.js`, and no `.map` files. `prices.json` sits beside them,
-  committed by the job, and survived this deploy (`keep-prices`). Checked live
-  at 834x40 and 768x40 (tablet row, four metals, nothing animating), 390x40
-  and 767x40 (phone pairs carousel) and 1440x24 (row with change): League
-  Spartan 400 + 600 loaded, heights 40/40/24, no sideways scroll.
-  History: 2026-09-25 `gh-pages` `a1ee8c4` = build of `a108275` (League
+- **`main` is the live branch.** Deployed 2026-10-02 (second deploy that day):
+  `gh-pages` `1313112` = build of `5b5b4a7` (48px gaps, row from 1014px at the
+  caps; tablet row for every 768-1034px frame; re-measure on any size change,
+  fixing the blank WebKit banner): live serves `main.60fe8ffe.js`,
+  `main.4baeb156.css` and `206.966e2417.chunk.js`, and no `.map` files.
+  `prices.json` sits beside them, committed by the job, and survived this
+  deploy (`keep-prices`). Checked live in Chromium and WebKit at 390x40 (phone
+  pairs carousel), 834x40 (tablet row), 1035x24 and 1440x24 (row with
+  change, four metals): League Spartan 400 + 600 loaded, heights 40/40/24/24,
+  no sideways scroll, no console errors.
+  History: 2026-10-02 `gh-pages` `b2e4729` = build of `8874661` (tablet row of
+  four metals, text ink centred in every band): `main.c0e39b25.js`,
+  `main.67b3e266.css` and `206.966e2417.chunk.js`; 2026-09-25 `gh-pages` `a1ee8c4` = build of `a108275` (League
   Spartan SemiBold text, Regular prices): `main.5ace8f70.js`,
   `main.dfcd0993.css` and `206.966e2417.chunk.js`; 2026-09-24 `gh-pages` `49b61a7` = build of `389baf6` (prices with a
   thousands comma): `main.5ace8f70.js`, `main.5b082651.css` and
