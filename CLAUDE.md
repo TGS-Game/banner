@@ -210,6 +210,23 @@ s.json`.
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
   `PHONE_SLIDE_SPACING` (8). A loop is slides x (hold + transition). The pairs
   are `PAIRS` in `prices.js`.
+- **Message to the page framing the banner** (built 2026-10-04, not yet
+  deployed): at the moment each slide starts to move, the loop back to the
+  first pair included, the banner calls
+  `window.parent.postMessage({ type: 'tgs-banner:move' }, '*')` (`announceMove`
+  in `PriceCarousel.js`), so the website can move its own carousels in step
+  (it accepts it only from `https://tgs-game.github.io`). Sent by **both
+  carousels** (phone: every 5.7s; 24px: every 6.7s) and, with "reduce motion",
+  when the fade starts (the same moment). The desktop and tablet rows send
+  nothing, nor does the empty strip, nor the banner opened outside a frame.
+  A timer follows the animation's own clock (read in a frame after
+  `animation.ready`, and again when a hidden page is shown), so new prices, a
+  resize or a redraw send nothing; a layout or "reduce motion" change restarts
+  the animation and the timer with it. A timer more than 700ms late (a hidden
+  tab) sends nothing for that move. Measured 2026-10-04 with the banner framed
+  by a page on another origin: Chromium within 4ms of the move's start; WebKit
+  (headless, about 22 frames a second here) usually within 25ms, one of its
+  frames, with stalls of up to 0.3s when its main thread was busy.
 
 ## Branches: work on `main`
 

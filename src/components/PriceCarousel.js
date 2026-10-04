@@ -185,6 +185,15 @@ export const useCarouselLayout = (bannerRef) => {
   return layout;
 };
 
+// Tells the page this banner is framed in that a slide has just started to
+// move (or, with "reduce motion", to fade), so it can move its own carousels
+// in step. The website only accepts it from this page's origin. Not in a
+// frame: nothing to tell.
+const announceMove = () => {
+  if (window.parent === window) return;
+  window.parent.postMessage({ type: "tgs-banner:move" }, "*");
+};
+
 // Shows each slide (an array of metal items) in turn, on an endless loop,
 // holding each for `hold` ms.
 // Runs on the Web Animations API, so when new prices arrive React only updates
@@ -196,21 +205,70 @@ const PriceCarousel = ({ slides, scale, hold = CAROUSEL_HOLD_MS }) => {
   useLayoutEffect(() => {
     const track = trackRef.current;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const { step, duration } = loopTiming(count, hold);
     let animations = [];
-    const start = () => {
+
+    // The moves are announced (announceMove) by a timer that follows the
+    // animation's own clock, so only a real move sends a message: new prices,
+    // a resize or a redraw don't. `origin` is when the animation began, on
+    // the performance.now() clock; a move starts `hold` ms into each step.
+    let origin = 0;
+    let timer = 0;
+    let frame = 0;
+    const moveAfter = (elapsed) => hold + step * (Math.floor((elapsed - hold) / step) + 1);
+    const waitForMove = (moveAt) => {
+      timer = setTimeout(() => {
+        const elapsed = performance.now() - origin;
+        if (elapsed < moveAt) return waitForMove(moveAt); // the timer was early
+        // A timer held up past the move (a hidden tab) sends nothing.
+        if (elapsed - moveAt < CAROUSEL_TRANSITION_MS) announceMove();
+        waitForMove(moveAfter(elapsed));
+      }, moveAt - (performance.now() - origin));
+    };
+    // Reads the animation's clock in a frame, when it is up to date. Again
+    // when the page is shown again, in case the browser paused the animation.
+    const sync = () => {
+      const [animation] = animations;
+      animation?.ready.then(
+        () => {
+          if (animation !== animations[0]) return;
+          cancelAnimationFrame(frame);
+          frame = requestAnimationFrame((now) => {
+            origin = now - animation.currentTime;
+            if (!timer) waitForMove(moveAfter(now - origin));
+          });
+        },
+        () => {} // cancelled before it began
+      );
+    };
+    const syncWhenShown = () => {
+      if (!document.hidden) sync();
+    };
+
+    const stop = () => {
       animations.forEach((animation) => animation.cancel());
-      const timing = { duration: loopTiming(count, hold).duration, iterations: Infinity };
+      animations = [];
+      clearTimeout(timer);
+      timer = 0;
+      cancelAnimationFrame(frame);
+    };
+    const start = () => {
+      stop();
+      const timing = { duration, iterations: Infinity };
       animations = reduceMotion.matches
         ? [...track.children]
             .slice(0, count)
             .map((slide, i) => slide.animate(fadeKeyframes(count, hold, i), timing))
         : [track.animate(slideKeyframes(count, hold), timing)];
+      sync();
     };
     start();
     reduceMotion.addEventListener?.("change", start);
+    document.addEventListener("visibilitychange", syncWhenShown);
     return () => {
       reduceMotion.removeEventListener?.("change", start);
-      animations.forEach((animation) => animation.cancel());
+      document.removeEventListener("visibilitychange", syncWhenShown);
+      stop();
     };
   }, [count, hold]);
 
