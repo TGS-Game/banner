@@ -210,8 +210,7 @@ s.json`.
   (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
   `PHONE_SLIDE_SPACING` (8). A loop is slides x (hold + transition). The pairs
   are `PAIRS` in `prices.js`.
-- **Message to the page framing the banner** (built 2026-10-04, not yet
-  deployed): at the moment each slide starts to move, the loop back to the
+- **Message to the page framing the banner** (since 2026-10-04): at the moment each slide starts to move, the loop back to the
   first pair included, the banner calls
   `window.parent.postMessage({ type: 'tgs-banner:move' }, '*')` (`announceMove`
   in `PriceCarousel.js`), so the website can move its own carousels in step
@@ -230,17 +229,21 @@ s.json`.
 
 ## Branches: work on `main`
 
-- **`main` is the live branch.** Deployed 2026-10-02 (second deploy that day):
-  `gh-pages` `1313112` = build of `5b5b4a7` (48px gaps, row from 1014px at the
-  caps; tablet row for every 768-1034px frame; re-measure on any size change,
-  fixing the blank WebKit banner): live serves `main.60fe8ffe.js`,
-  `main.4baeb156.css` and `206.966e2417.chunk.js`, and no `.map` files.
-  `prices.json` sits beside them, committed by the job, and survived this
-  deploy (`keep-prices`). Checked live in Chromium and WebKit at 390x40 (phone
-  pairs carousel), 834x40 (tablet row), 1035x24 and 1440x24 (row with
-  change, four metals): League Spartan 400 + 600 loaded, heights 40/40/24/24,
-  no sideways scroll, no console errors.
-  History: 2026-10-02 `gh-pages` `b2e4729` = build of `8874661` (tablet row of
+- **`main` is the live branch.** Deployed 2026-10-04: `gh-pages` `f2bc21c` =
+  build of `2070e7c` (the `tgs-banner:move` message to the framing page; no
+  change to how the banner looks): live serves `main.4e891ae8.js`,
+  `main.4baeb156.css` (unchanged) and `206.966e2417.chunk.js`, and no `.map`
+  files. `prices.json` sits beside them, committed by the job, and survived
+  this deploy (`keep-prices`). Checked live in Chromium and WebKit, framed by
+  another page: 390x40 (phone pairs carousel) sent 3 messages in 19s, 5.7s
+  apart, from origin `https://tgs-game.github.io`; 834x40 (tablet row),
+  1035x24 and 1440x24 (row) sent none; League Spartan 400 + 600 loaded,
+  heights 40/40/24/24, no sideways scroll, no console errors.
+  History: 2026-10-02 (second deploy that day) `gh-pages` `1313112` = build of
+  `5b5b4a7` (48px gaps, row from 1014px at the caps; tablet row for every
+  768-1034px frame; re-measure on any size change, fixing the blank WebKit
+  banner): `main.60fe8ffe.js`, `main.4baeb156.css` and
+  `206.966e2417.chunk.js`; 2026-10-02 `gh-pages` `b2e4729` = build of `8874661` (tablet row of
   four metals, text ink centred in every band): `main.c0e39b25.js`,
   `main.67b3e266.css` and `206.966e2417.chunk.js`; 2026-09-25 `gh-pages` `a1ee8c4` = build of `a108275` (League
   Spartan SemiBold text, Regular prices): `main.5ace8f70.js`,
