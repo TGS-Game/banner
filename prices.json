@@ -1,6 +1,6 @@
 {
-  "fetchedAt": "2026-11-08T04:01:15.122Z",
-  "ratesAt": "2026-11-08T03:56:15.000Z",
+  "fetchedAt": "2026-11-08T04:11:16.844Z",
+  "ratesAt": "2026-11-08T04:06:15.000Z",
   "yesterdayDate": "2026-11-07",
   "metals": {
     "XAU": {
@@ -9,14 +9,14 @@
       "changePercent": 0.009805329621630346
     },
     "XAG": {
-      "price": 51.9412472399,
-      "change": 0.007627442500002246,
-      "changePercent": 0.014686907112883561
+      "price": 51.9336197974,
+      "change": 0,
+      "changePercent": 0
     },
     "XPT": {
-      "price": 1536.8190335652,
-      "change": -0.6599375661999147,
-      "changePercent": -0.04292335560949363
+      "price": 1537.4789711314,
+      "change": 0,
+      "changePercent": 0
     },
     "XPD": {
       "price": 1022.4334160686,
