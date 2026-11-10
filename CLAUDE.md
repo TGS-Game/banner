@@ -70,7 +70,14 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   wins over it). After that a failed, broken or incomplete read keeps the last
   prices. It never shows error or placeholder text.
 - **Secret:** `METALPRICE_API_KEY`, a GitHub Actions repository secret. The code
-  - **GitHub's schedule alone is not enough.** Over the night of 2026-09-22/23 it
+  contains no key.
+- **Run it now:** GitHub > Actions > "Update prices" > "Run workflow", or
+  `gh workflow run update-prices.yml -R TGS-Game/banner` then
+  `gh run watch -R TGS-Game/banner`. Each run spends 1-2 API calls, or 0 when
+  it is within `MIN_GAP_MINUTES` (8) of the last fetch: it then skips and
+  `prices.json` doesn't change, so to see an update, run it 8+ minutes after
+  `fetchedAt`.
+- **GitHub's schedule alone is not enough.** Over the night of 2026-09-22/23 it
   ran 3 times where about 60 were due (gaps of 3h 0m, 2h 25m and 4h 31m), so
   prices went up to 4.5 hours stale. That's why the watchdog triggers the job.
   The `cron` stays as a backstop in case the VPS is down.
@@ -79,10 +86,6 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   job whatever triggers it (typically 6, one per watchdog run). That leaves
   at least 2 an hour for `npm run deploy`. Don't lower `MIN_GAP_MINUTES` or add
   triggers without redoing this sum.
-s.json`.
-  - If the cadence matters, trigger `workflow_dispatch` from a scheduler off
-    GitHub (e.g. a Windows Scheduled Task running `gh workflow run`) and treat
-    the `cron` as a fallback. Not built; discuss first.
 - Schedules only run from the default branch (`main`), and in a public repo
   are turned off after 60 days with no repository activity: re-enable in the
   Actions tab.
