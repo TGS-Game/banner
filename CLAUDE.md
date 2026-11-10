@@ -48,6 +48,22 @@ Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstanda
   range (`RANGES` in the script), a move of at most 25% since yesterday, and
   rates at most 4 days old. On any failure nothing is written (the last good
   file stays) and the run fails, visibly, in the Actions tab.
+- **Just after midnight UTC** (since `ab93a42`, 2026-11-10): from 2026-11-06
+  the 00:01 run failed every night with `historical: XAU missing` (email each
+  time): metalpriceapi's rates for the day that just ended have no gold at
+  00:01; it appears by 00:08-00:21. Now, within `HISTORICAL_GRACE_MINUTES` (60)
+  of midnight, a metal missing from yesterday's rates is a `::warning::` and a
+  green run that writes nothing; the next run retries (2 calls each, so a few
+  extra calls a night). After 01:00 it fails as before, and if it never comes
+  the file goes stale and the watchdog alerts. Only "missing" is excused, not
+  out-of-range or HTTP errors. It was not the key (rotated 2026-10-22; `latest`
+  kept working with it).
+- **Retries:** the push to `gh-pages` and the Pages build request are each
+  tried 3 times, 10s apart (GitHub answered 5xx or `fatal error in
+  commit_refs_rules` 3 times in the week of 2026-11-03); before a push retry
+  the job does `git pull --rebase` in case `gh-pages` moved. Runs that fail
+  before any job starts (GitHub side, e.g. 2026-11-09 18:11 and 18:21) can't
+  be retried from the workflow; the next run catches up.
 - **Banner on failure:** before the first good file it shows **nothing**: an
   empty strip of the background colour, no text (class `bannerEmpty`, fixed at
   24px so nothing moves when the prices appear; the phone layout's inline 40px
@@ -73,7 +89,8 @@ s.json`.
 - `npm run deploy` would otherwise delete `prices.json` (it replaces the whole
   `gh-pages` branch), so `predeploy` runs `scripts/keep-prices.mjs`, which copies
   the current file from `origin/gh-pages` into `build/`. A deploy and a job run
-  pushing at the same moment: one push is rejected; re-run it.
+  pushing at the same moment: the job rebases onto the deploy and retries; if
+  the deploy's push is the one rejected, re-run the deploy.
 
 ## Price watchdog (Windows Scheduled Task on the VPS)
 
@@ -129,6 +146,10 @@ s.json`.
   to gh-pages, a Pages build).
 - **Not covered:** if the VPS itself is down, nothing alerts (the `cron`
   backstop keeps running, slowly). The alerts only fire from this machine.
+  It also never looks at whether workflow runs passed: a failed run that the
+  next run fixes (file never 45 minutes old) sends no Slack message, only
+  GitHub's failure email. That's why the nightly `XAU missing` failures of
+  2026-11-06 to 11-10 never reached #depot-alerts.
 
 ## Layout: row vs carousel
 
