@@ -57,6 +57,8 @@ jobs:
           METALPRICE_API_KEY: ${{ secrets.METALPRICE_API_KEY }}
         run: node tools/scripts/fetch-prices.mjs site/prices.json
 
+      # GitHub sometimes rejects a push with a server error, so try 3 times.
+      # Before a retry, rebase onto gh-pages in case it moved (e.g. a deploy).
       - name: Commit and push
         id: push
         working-directory: site
@@ -69,13 +71,29 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add prices.json
           git commit -m "Update prices"
-          git push origin HEAD:gh-pages
-          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:gh-pages; then
+              echo "pushed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            [ "$attempt" = 3 ] && break
+            echo "Push failed (attempt $attempt of 3); retrying in 10s"
+            sleep 10
+            git pull --rebase origin gh-pages || { git rebase --abort; exit 1; }
+          done
+          exit 1
 
       # A push made with the built-in token does not start a Pages build by
-      # itself, so ask for one.
+      # itself, so ask for one (3 tries, as GitHub sometimes answers 5xx).
       - name: Rebuild GitHub Pages
         if: steps.push.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api --method POST "repos/${{ github.repository }}/pages/builds" --silent
+        run: |
+          for attempt in 1 2 3; do
+            gh api --method POST "repos/${{ github.repository }}/pages/builds" --silent && exit 0
+            [ "$attempt" = 3 ] && break
+            echo "Pages build request failed (attempt $attempt of 3); retrying in 10s"
+            sleep 10
+          done
+          exit 1

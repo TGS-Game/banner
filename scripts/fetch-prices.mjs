@@ -12,6 +12,14 @@
 // exits with an error and leaves the existing file untouched, so the banner keeps
 // the last good prices and the workflow run shows as failed.
 //
+// One exception: just after midnight UTC metalpriceapi may not have published
+// the day that just ended for every metal yet (since 2026-11-06 gold is missing
+// at 00:01 and appears by about 00:20). Within HISTORICAL_GRACE_MINUTES of
+// midnight a missing metal in yesterday's prices is "not ready yet": a warning,
+// nothing written, a green run, and the next run tries again. After that it
+// fails as usual, and if it never arrives the file goes stale and the watchdog
+// alerts.
+//
 // Never log request URLs or response bodies: the URLs contain the key.
 
 import { readFile, rename, writeFile } from "node:fs/promises";
@@ -37,6 +45,12 @@ const MAX_RATES_AGE_DAYS = 4;
 // build), so at most 8 Pages builds an hour come from here, whatever the
 // triggers do. GitHub allows 10 an hour, which leaves room for deploys.
 export const MIN_GAP_MINUTES = 8;
+// Minutes after midnight UTC during which yesterday's prices missing a metal
+// means "not published yet, retry next run" rather than a failure.
+export const HISTORICAL_GRACE_MINUTES = 60;
+
+// Thrown when yesterday's prices aren't complete yet, within the grace period.
+export class NotReadyError extends Error {}
 
 // YYYY-MM-DD for the UTC day before `now`.
 export const yesterdayUTC = (now) =>
@@ -67,7 +81,7 @@ const getRates = async (fetchFn, key, endpoint, what) => {
     const price = body.rates[`USD${symbol}`];
     const [low, high] = RANGES[symbol];
     if (typeof price !== "number" || !Number.isFinite(price)) {
-      throw new Error(`${what}: ${symbol} missing`);
+      throw Object.assign(new Error(`${what}: ${symbol} missing`), { missing: symbol });
     }
     if (price < low || price > high) {
       throw new Error(`${what}: ${symbol} = ${price} is outside ${low}-${high}`);
@@ -107,7 +121,18 @@ export const buildPrices = async ({ fetchFn, key, now, previous }) => {
   let yesterday = yesterdayFromFile(previous, yesterdayDate);
   const calls = yesterday ? 1 : 2;
   if (!yesterday) {
-    ({ rates: yesterday } = await getRates(fetchFn, key, yesterdayDate, "historical"));
+    try {
+      ({ rates: yesterday } = await getRates(fetchFn, key, yesterdayDate, "historical"));
+    } catch (err) {
+      const sinceMidnight = (now.getTime() % 86400000) / 60000;
+      if (err.missing && sinceMidnight < HISTORICAL_GRACE_MINUTES) {
+        throw new NotReadyError(
+          `historical: ${err.missing} for ${yesterdayDate} not published yet ` +
+            `(${Math.floor(sinceMidnight)} min after midnight UTC); file kept, next run retries`,
+        );
+      }
+      throw err;
+    }
   }
 
   const metals = {};
@@ -179,6 +204,10 @@ const main = async () => {
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
+    if (err instanceof NotReadyError) {
+      console.log(`::warning::${err.message}`);
+      return;
+    }
     console.error(`::error::${err.message}`);
     process.exit(1);
   });
