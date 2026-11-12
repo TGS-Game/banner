@@ -1,370 +1,103 @@
 # banner
 
-Live metal-price ticker banner for The Gold Standard. Shows USD spot prices for
-gold, silver, platinum and palladium with a coloured daily change, refreshed every
-60 seconds. Designed to be embedded on other pages (e.g. in an iframe).
+> PUBLIC repo, and this file is tracked: keep personal names, email addresses, local machine paths and secrets
+> out of it (and out of docs/HISTORY.md). Long detail and the deploy history are in docs/HISTORY.md.
 
-Repo: https://github.com/TGS-Game/banner (public; transferred from `thegldstandard`).
+## What this app does
+The live metal-price ticker for The Gold Standard: USD spot prices for gold, silver, platinum and palladium with
+the daily change, refreshed every 60 s, embedded in other pages by iframe. Create React App (React 18), no backend.
+`src/components/prices.js` (reads `prices.json`, the one-row banner) and `PriceCarousel.js` (narrow screens).
+Repo: https://github.com/TGS-Game/banner (public).
 
-## Stack
+## How it connects to other apps
+- **Shown on:** thegoldstandard.com (the main site, `src/site.js` `tickerUrl`) at https://tgs-game.github.io/banner.
+  When a carousel slide moves, it posts `{type:'tgs-banner:move'}` to the framing page, which accepts it only from
+  `https://tgs-game.github.io`. The site's iframe should be 40px tall below 1035px wide, 24px above.
+- **Prices:** the browser never calls metalpriceapi. It reads only `prices.json` beside the page (on the
+  `gh-pages` branch). The "Update prices" GitHub Action (`.github/workflows/update-prices.yml`,
+  `scripts/fetch-prices.mjs`, secret `METALPRICE_API_KEY`) fetches metalpriceapi (Basic Plus plan, 50,000 calls a
+  month; about 4,400 used) and commits the file, then asks GitHub Pages to rebuild.
+- **Triggered by:** the VPS "Banner price watchdog" every 10 min, GitHub's own `cron` (`4-59/10`) as a backstop
+  (GitHub drops most of those), and by hand.
+- **Alerts:** the watchdog posts to Slack #depot-alerts. Nothing runs on Railway.
 
-- Create React App (`react-scripts` 5), React 18. No backend, no database.
-- Two components in `src/components/`: `prices.js` (reading `prices.json` and the
-  one-row banner; + `Prices.css`, `icons/`) and `PriceCarousel.js` (the
-  narrow-screen carousel). `src/App.js` just renders `Prices`. `public/style.css`
-  holds global styles.
-- `design/mobile-banner.png` is the design the phone layout follows.
-- `scripts/fetch-prices.mjs` + `.github/workflows/update-prices.yml`: the job that
-  fetches prices (see "Prices: how they flow"). `scripts/keep-prices.mjs`: part of
-  `npm run deploy`.
-
-## Prices: how they flow
-
-- **The browser never calls metalpriceapi.** The banner reads only
-  `prices.json`, next to the page: https://tgs-game.github.io/banner/prices.json
-  (`${PUBLIC_URL}/prices.json`), on load and every 60 seconds, with
-  `cache: "no-cache"` (Pages sends `max-age=600`). That costs no API quota.
-- **The file lives on the `gh-pages` branch** (root), not on `main`. The
-  "Update prices" workflow (`.github/workflows/update-prices.yml`) is started
-  every 10 minutes by a Scheduled Task on the VPS (see "Price watchdog"), by
-  GitHub's own `cron` (`4-59/10`) as a backstop, and on demand. It runs
-  `scripts/fetch-prices.mjs` on a checkout of `gh-pages`, commits `prices.json`
-  if it changed, pushes, then asks GitHub Pages to rebuild (`POST
-  /repos/TGS-Game/banner/pages/builds`, because a push with the built-in token
-  does not start one).
-- **API calls:** `latest` every run; yesterday's historical rates only when the
-  UTC date rolls over (otherwise recovered from the file as price - change). So
-  about 145 calls a day, about 4,400 a month. Each run is 1 call (2 once a day),
-  or 0 when it skips: a run within `MIN_GAP_MINUTES` (8) of the last fetch
-  (`fetchedAt`) does nothing, so two triggers don't double the calls.
-  The plan is **Basic Plus** (50,000 a month, prices update every 5 minutes), so
-  there is plenty of room; 10 minutes is a deliberate choice, not a limit (the
-  prices don't move enough to justify 5). The schedule is the `cron` line.
-- **File format:** `fetchedAt`, `ratesAt` (the API's timestamp), `yesterdayDate`
-  (UTC), and `metals.{XAU,XAG,XPT,XPD}.{price, change, changePercent}`: the same
-  sums the banner used to do. The banner formats them with two decimals and
-  a thousands comma (`Intl.NumberFormat("en-US")`, `money` in `prices.js`).
-- **Checks before writing:** all four metals present, numeric and within a sane
-  range (`RANGES` in the script), a move of at most 25% since yesterday, and
-  rates at most 4 days old. On any failure nothing is written (the last good
-  file stays) and the run fails, visibly, in the Actions tab.
-- **Just after midnight UTC** (since `ab93a42`, 2026-11-10): from 2026-11-06
-  the 00:01 run failed every night with `historical: XAU missing` (email each
-  time): metalpriceapi's rates for the day that just ended have no gold at
-  00:01; it appears by 00:08-00:21. Now, within `HISTORICAL_GRACE_MINUTES` (60)
-  of midnight, a metal missing from yesterday's rates is a `::warning::` and a
-  green run that writes nothing; the next run retries (2 calls each, so a few
-  extra calls a night). After 01:00 it fails as before, and if it never comes
-  the file goes stale and the watchdog alerts. Only "missing" is excused, not
-  out-of-range or HTTP errors. It was not the key (rotated 2026-10-22; `latest`
-  kept working with it).
-- **Retries:** the push to `gh-pages` and the Pages build request are each
-  tried 3 times, 10s apart (GitHub answered 5xx or `fatal error in
-  commit_refs_rules` 3 times in the week of 2026-11-03); before a push retry
-  the job does `git pull --rebase` in case `gh-pages` moved. Runs that fail
-  before any job starts (GitHub side, e.g. 2026-11-09 18:11 and 18:21) can't
-  be retried from the workflow; the next run catches up.
-- **Banner on failure:** before the first good file it shows **nothing**: an
-  empty strip of the background colour, no text (class `bannerEmpty`, fixed at
-  24px so nothing moves when the prices appear; the phone layout's inline 40px
-  wins over it). After that a failed, broken or incomplete read keeps the last
-  prices. It never shows error or placeholder text.
-- **Secret:** `METALPRICE_API_KEY`, a GitHub Actions repository secret. The code
-  contains no key.
-- **Run it now:** GitHub > Actions > "Update prices" > "Run workflow", or
-  `gh workflow run update-prices.yml -R TGS-Game/banner` then
-  `gh run watch -R TGS-Game/banner`. Each run spends 1-2 API calls, or 0 when
-  it is within `MIN_GAP_MINUTES` (8) of the last fetch: it then skips and
-  `prices.json` doesn't change, so to see an update, run it 8+ minutes after
-  `fetchedAt`.
-- **GitHub's schedule alone is not enough.** Over the night of 2026-09-22/23 it
-  ran 3 times where about 60 were due (gaps of 3h 0m, 2h 25m and 4h 31m), so
-  prices went up to 4.5 hours stale. That's why the watchdog triggers the job.
-  The `cron` stays as a backstop in case the VPS is down.
-- **Pages builds (GitHub allows 10 an hour):** a build happens only when a run
-  pushes new prices, and the 8-minute gap means at most 8 an hour from the
-  job whatever triggers it (typically 6, one per watchdog run). That leaves
-  at least 2 an hour for `npm run deploy`. Don't lower `MIN_GAP_MINUTES` or add
-  triggers without redoing this sum.
-- Schedules only run from the default branch (`main`), and in a public repo
-  are turned off after 60 days with no repository activity: re-enable in the
-  Actions tab.
-- `npm run deploy` would otherwise delete `prices.json` (it replaces the whole
-  `gh-pages` branch), so `predeploy` runs `scripts/keep-prices.mjs`, which copies
-  the current file from `origin/gh-pages` into `build/`. A deploy and a job run
-  pushing at the same moment: the job rebases onto the deploy and retries; if
-  the deploy's push is the one rejected, re-run the deploy.
+## How it's run, tested and deployed
+- Local (PowerShell): `npm ci`, `npm run build` (offline, touches nothing live), `npm start` (localhost:3000).
+  Locally there's no `prices.json`, so the banner is an empty strip: put a test copy in `public/prices.json`
+  (git-ignored, never published).
+- `npm test` (jest): `src/App.test.js` is CRA boilerplate and is expected to fail; it is broken anyway (missing
+  `@testing-library/jest-dom`). Watchdog tests (offline, fake Slack and fake GitHub):
+  `powershell -ExecutionPolicy Bypass -File ops\test-price-watchdog.ps1`.
+- **Deploy = `npm run deploy`** (build, `scripts/keep-prices.mjs` copies the live `prices.json` into `build/`,
+  then `gh-pages -d build` pushes to the `gh-pages` branch). GitHub Pages serves it at
+  **https://tgs-game.github.io/banner/** (the live site). Pushing to `main` does not deploy the banner, but
+  changes to the workflow on `main` take effect at once.
+- Check a build against live: compare `static/js/main.*.js` / `static/css/main.*.css` names with
+  https://tgs-game.github.io/banner/asset-manifest.json.
+- Run the price job now: `gh workflow run update-prices.yml -R TGS-Game/banner` (only with approval; spends
+  1-2 API calls; does nothing within `MIN_GAP_MINUTES` (8) of the last fetch).
 
 ## Price watchdog (Windows Scheduled Task on the VPS)
+- Task **"Banner price watchdog"**, as SYSTEM, every 10 min, priority 4. It runs a copy of
+  `ops/price-watchdog.ps1` in `$env:ProgramData\BannerWatchdog` made by `ops/install-watchdog.ps1`:
+  **after editing the script, re-run the installer** (elevated), or the task keeps the old copy.
+  Remove: the installer with `-Uninstall`.
+- Each run checks the live `prices.json`, then triggers the workflow (`workflow_dispatch`, ref `main`).
+- **Alert thresholds (pending commit of the watchdog change, 12 Nov 2026; until it is committed and the installer
+  is re-run, the VPS still runs the old rules in docs/HISTORY.md):** only sustained problems alert, each with one
+  message and one "fixed".
 
-- **What:** Task Scheduler task **"Banner price watchdog"**, as SYSTEM, every 10
-  minutes (minute 1, 11, 21, ...), indefinitely, including after reboots
-  (`StartWhenAvailable` catches up on runs missed while the VPS was off). It
-  runs `C:\ProgramData\BannerWatchdog\price-watchdog.ps1`, a copy of
-  `ops/price-watchdog.ps1` made by `ops/install-watchdog.ps1`. **After editing
-  the script, re-run the installer**, or the task keeps the old copy. The folder
-  is locked to SYSTEM and Administrators. The task runs at priority 4: at the
-  default (7) PowerShell took 30s to over 3 minutes just to start as SYSTEM
-  here (1.8s at 4). A run takes about 20s.
-- **Each run:**
-  1. Reads the live `prices.json`. Over 45 minutes old = stale -> **one**
-     message to #depot-alerts with the age and a link to the workflow's page
-     (https://github.com/TGS-Game/banner/actions/workflows/update-prices.yml,
-     tap "Run workflow"), and **one** when it recovers. Exception: when rates
-     haven't changed (markets closed) the job keeps the file, so `fetchedAt`
-     stops moving; the watchdog counts that as fresh when gh-pages holds the
-     same file and a run succeeded in the last 45 minutes. 3 failed reads in a
-     row (Pages down) -> one message, one on recovery.
-  2. Triggers the workflow (`POST .../actions/workflows/update-prices.yml/dispatches`,
-     ref `main`). 3 failures in a row, or at once on 401/403/404 (token revoked,
-     broken or lacking access) -> one message, one when it works again. That
-     401 alert is what catches a dead token.
-  A failed Slack post is retried on the next run. State (what has been alerted)
-  is in `state.json` beside the log.
-- **Secrets:** machine-level environment variables `BANNER_GH_TOKEN` (fine-grained,
-  TGS-Game/banner only, Actions read/write) and `BANNER_SLACK_WEBHOOK`
-  (#depot-alerts), read from the registry on each run. Never print them.
-  **The token never expires.** To replace it (revoked or broken): make a new
-  token with the same scope, paste it into System Properties > Environment
-  Variables > System variables > `BANNER_GH_TOKEN` (keeps it out of shell
-  history). The next run uses it; no restart or reinstall needed.
-- **Log:** `C:\ProgramData\BannerWatchdog\watchdog.log`, one line per run (UTC),
-  e.g. `check: fetchedAt ..., age 6m, fresh | trigger: ok (204)`. Rotates to
-  `watchdog.log.1` at 1 MB (about 2 months).
-- **Is it running?** In an elevated PowerShell:
-  `Get-ScheduledTaskInfo 'Banner price watchdog'` (LastRunTime, LastTaskResult
-  0, NextRunTime) and
-  `Get-Content C:\ProgramData\BannerWatchdog\watchdog.log -Tail 5`. On GitHub,
-  runs with event `workflow_dispatch` every ~10 minutes:
-  `gh run list -R TGS-Game/banner -w update-prices.yml`.
-- **Trigger by hand:** `Start-ScheduledTask 'Banner price watchdog'` (the whole
-  check + trigger), or just the workflow as in "Run it now" above.
-- **Install / update:** `powershell -ExecutionPolicy Bypass -File ops\install-watchdog.ps1`
-  (elevated). **Remove:** the same with `-Uninstall` (keeps the log and state;
-  delete `C:\ProgramData\BannerWatchdog` to remove those too).
-- **Test without side effects:** `ops\price-watchdog.ps1 -PricesUrl <local file>
-  -StateDir <scratch dir> -NoTrigger -Test` (`-Test` prefixes messages with
-  `[TEST]`, but they are really posted; `-TestBadToken` shows the trigger-failure
-  alert). Without `-NoTrigger` a run starts the workflow (1-2 API calls, a push
-  to gh-pages, a Pages build).
-- **Not covered:** if the VPS itself is down, nothing alerts (the `cron`
-  backstop keeps running, slowly). The alerts only fire from this machine.
-  It also never looks at whether workflow runs passed: a failed run that the
-  next run fixes (file never 45 minutes old) sends no Slack message, only
-  GitHub's failure email. That's why the nightly `XAU missing` failures of
-  2026-11-06 to 11-10 never reached #depot-alerts.
+  | Problem | Alerts after | "Fixed" after |
+  |---|---|---|
+  | Prices stale (over 45 min old) | 2 checks in a row (about 55 min) | 2 fresh checks in a row |
+  | Token error (401/403/404) | 2 failures in a row (was 1) | 2 good triggers in a row |
+  | Other trigger errors | 3 in a row | 2 good triggers in a row |
+  | Can't read prices.json | 3 in a row | 2 good reads in a row |
 
-## Layout: row vs carousel
+  No "stale" message is sent while the trigger is failing (the trigger alert covers it). Markets closed (rates
+  unchanged, file kept) counts as fresh. A failed Slack post is retried next run. State is in `state.json`,
+  the log in `watchdog.log` (rotates at 1 MB), both beside the script copy.
+- Secrets: machine environment variables `BANNER_GH_TOKEN` (fine-grained, this repo only, Actions read/write,
+  never expires) and `BANNER_SLACK_WEBHOOK`. Never print them. To replace the token, paste the new one into
+  System Properties > Environment Variables; the next run uses it.
+- Is it running? `Get-ScheduledTaskInfo 'Banner price watchdog'` and the last lines of `watchdog.log`; on GitHub,
+  `gh run list -R TGS-Game/banner -w update-prices.yml` shows `workflow_dispatch` runs every ~10 min.
+- Not covered: if the VPS is down nothing alerts, and a failed run that the next run fixes only sends GitHub's
+  failure email.
 
-- Wide screens show the original one-row banner, 24px tall. Frames 768-1034px
-  wide and 40px+ tall always get the tablet row, and frames under 768px wide and
-  40px+ tall the phone carousel. Otherwise the row is measured at runtime and,
-  when the four metals don't fit on one row, the 24px carousel takes over. With
-  "reduce motion" on, carousel slides fade instead of sliding.
-- **Row width** (since 2026-10-02, `gap: 3rem` = 48px between metals, was
-  5rem): 941px with the prices of 2026-10-02; at the realistic caps (Gold and
-  Platinum $9,999.99, Silver $199.99, Palladium $4,999.99) 979px with a 1.5%
-  daily move, 991px with 5%, 1014px with 10% (1026px with 0 in every digit).
-  So it fits a 1035px page less a Windows scrollbar (1018px). With 80px gaps
-  it was 1037px today and 1075-1110px at the caps.
-- **Re-measuring** (fixed 2026-10-02): `useCarouselLayout` measures after every
-  render, on `resize`, and on any size change of the banner or a metal
-  (`ResizeObserver`), and never shrinks the slides below `MIN_SCALE` (0.5).
-  Before, WebKit could measure before `Prices.css` (held up by its font
-  `@import`) applied: the slides got `scale(0.002)` and the banner stayed blank,
-  or wide pages kept the carousel, until the frame was resized.
-- **Bands**, as the site's iframe should be sized: phones under 768px = 40px,
-  tablets 768-1034px = 40px, desktop above = 24px. In a frame shorter than
-  40px, phones and tablets fall back to the 24px carousel (nothing clips).
-- **Fonts:** all banner text is League Spartan SemiBold (600) except the prices,
-  which are Regular (400), on desktop and phones. `Prices.css` loads exactly
-  those two weights from Google Fonts (`wght@400;600`); a weight used but not
-  loaded falls back to the nearest loaded one (600 rendered as 700 before it
-  was added). `.banner` sets `line-height: 16px`: League Spartan's own is 12px,
-  which would make the desktop banner 20px tall instead of 24px.
-- **Vertical centring:** the line boxes are centred, but League Spartan draws
-  capitals and digits above the middle of them, so the text is nudged down
-  (`position: relative; top`) to centre its ink on the icons and the banner:
-  2px in the 24px banner (row and carousel; names, prices and the change),
-  1.5px names / 1px prices in the phone and tablet layouts. Measured
-  2026-10-02 from screenshot pixels on the capitals and digits (not `$` or
-  brackets): within half a pixel at 1x and 2x in all three bands (0.75px at
-  one shrunken phone size; was 1.5-2px high everywhere). Re-measure if the font, sizes or `line-height` change.
-- **24px carousel** (the page is too narrow for the row, but not a phone frame):
-  two metals at a time, Gold + Silver then Platinum + Palladium, sliding left on
-  a loop. Each pair holds 6s (13.4s loop).
-- **Phone layout**: in a frame under 768px wide (`max-width: 767.98px`) and at least
-  `PHONE_BANNER_HEIGHT` (40px) tall the banner is that height and the carousel
-  shows the same **pairs** (Gold + Silver, Platinum + Palladium), styled after
-  `design/mobile-banner.png`: 22px icon in a filled circle, name, price. **No
-  daily change** on phones. Each pair holds 5s (11.4s loop). JS adds the
-  `bannerPhone` class and the height; `Prices.css` section 4 keys off the class
-  (no media query), so the height is one setting.
-  thegoldstandard.com's phone iframe is 80px tall; it must be set to 40px or
-  the frame shows 40px of blank space under the banner.
-- **Tablet layout** (since 2026-10-02): in a frame 768-1034px wide
-  (`TABLET_QUERY`) and at least `TABLET_BANNER_HEIGHT` (40px) tall, whether or
-  not the full row would fit (it often does from about 941px), all four
-  metals sit in **one row, spread evenly, nothing rotates**, styled like the
-  phone layout (22px icon, 14px name, 15px price, **no daily change**). JS adds
-  `bannerTablet` and the height and renders `.tabletRow` instead of the
-  carousel; `Prices.css` section 5 (sharing section 4's icon/colour rules).
-  Text is always full size: at the caps the row is about 602px (612px with 0
-  in every digit), leaving 27-30px gaps at 768px. The empty strip before the
-  first prices gets the tablet height from the same query. The site's iframe must be 40px up to
-  1034px wide for this to show (it was 20px above 768px on 2026-09-25); until
-  then those widths keep the 24px carousel.
-- Phone text is 14px name / 15px price from a ~386px-wide frame up, and shrinks
-  smoothly (vw-based, `--phone-text` in `Prices.css`) below that so the widest
-  realistic slide still fits: `PLATINUM $2000.00` + `PALLADIUM $2000.00`
-  (0 is League Spartan's widest digit; realistic caps are Gold/Platinum
-  $9999.99, Palladium $4999.99, Silver $199.99). The formula's constants
-  assume the icon, margin and `PHONE_SLIDE_SPACING` values: update them together.
-  The formula's 268.53px is that slide's text measured when names and prices
-  were Bold (700). Since 2026-09-25 (SemiBold names, Regular prices) the same
-  text is 261.22px, or 269.53px with the thousands commas prices render with
-  (`$2,000.00`), so 268.53 is kept: the displayed slide fits it to within the
-  measuring slack, the JS `scale` is not needed at any width from 320 up
-  (checked at the caps and at `$2,000.00`), and text is full size from 386px.
-  (With Bold it was 277.25px with commas and the `scale` shrank the slide by
-  up to ~1.7% below 391px.)
-- Settings, at the top of `PriceCarousel.js`: `PHONE_BANNER_HEIGHT` (40),
-  `TABLET_BANNER_HEIGHT` (40, and `TABLET_QUERY`'s 768-1034px band),
-  `CAROUSEL_HOLD_MS` (6000, the 24px pairs carousel), `PHONE_CAROUSEL_HOLD_MS`
-  (5000, the phone layout), `CAROUSEL_TRANSITION_MS` (700, both) and
-  `PHONE_SLIDE_SPACING` (8). A loop is slides x (hold + transition). The pairs
-  are `PAIRS` in `prices.js`.
-- **Message to the page framing the banner** (since 2026-10-04): at the moment each slide starts to move, the loop back to the
-  first pair included, the banner calls
-  `window.parent.postMessage({ type: 'tgs-banner:move' }, '*')` (`announceMove`
-  in `PriceCarousel.js`), so the website can move its own carousels in step
-  (it accepts it only from `https://tgs-game.github.io`). Sent by **both
-  carousels** (phone: every 5.7s; 24px: every 6.7s) and, with "reduce motion",
-  when the fade starts (the same moment). The desktop and tablet rows send
-  nothing, nor does the empty strip, nor the banner opened outside a frame.
-  A timer follows the animation's own clock (read in a frame after
-  `animation.ready`, and again when a hidden page is shown), so new prices, a
-  resize or a redraw send nothing; a layout or "reduce motion" change restarts
-  the animation and the timer with it. A timer more than 700ms late (a hidden
-  tab) sends nothing for that move. Measured 2026-10-04 with the banner framed
-  by a page on another origin: Chromium within 4ms of the move's start; WebKit
-  (headless, about 22 frames a second here) usually within 25ms, one of its
-  frames, with stalls of up to 0.3s when its main thread was busy.
+## Rules and gotchas
+- If you change any key, password or variable, log it in the owner's private key-change log (the rule and its
+  location are in the private CLAUDE.md of the parent projects folder) and ask the owner to re-export the
+  encrypted variables backup into Bitwarden.
+- Work on **`main`** (the default and live branch). `master` is stale and still has the old API key in
+  `src/components/prices.js`; never build or deploy it.
+- Never run `npm run deploy`, push to `gh-pages` or run the workflow without explicit approval. Before running
+  anything, say whether it touches the metalpriceapi quota, `gh-pages`, GitHub Pages or the workflow.
+- Never put `METALPRICE_API_KEY` in `.env`, `REACT_APP_*` or any file: CRA would inline it into the public
+  bundle. `fetch-prices.mjs` never logs request URLs or bodies (the URL holds the key); keep it so. Report secrets
+  only as "set / not set". `.env` holds only `GENERATE_SOURCEMAP=false`.
+- `npm run deploy` would delete `prices.json` without `keep-prices` (it replaces the whole `gh-pages` branch).
+- GitHub Pages allows 10 builds an hour: the job builds at most ~8 (`MIN_GAP_MINUTES` 8). Don't lower it or add
+  triggers without redoing that sum.
+- In a public repo, schedules stop after 60 days with no activity: re-enable in the Actions tab.
+- Prices checks before writing: all four metals, sane ranges, at most a 25% daily move, rates at most 4 days old;
+  otherwise nothing is written and the run fails. Just after midnight UTC a metal missing from yesterday's rates
+  is only a warning for 60 min (`HISTORICAL_GRACE_MINUTES`).
+- The banner never shows error text: an empty strip before the first prices, then the last good prices.
+- Layout bands: phones under 768px = 40px carousel of pairs (no daily change); tablets 768-1034px = 40px row of
+  four; above = the 24px row (24px carousel if it doesn't fit). Settings at the top of `PriceCarousel.js`.
+- Headless Chrome here reports reduced motion (the fade, not the slide) unless you emulate `no-preference`.
+- Not on Railway: don't `railway link` this folder or set Railway variables.
+- Way of working: investigate on `main`, build, verify (`npm run build` at least; look at it with `npm start`
+  when the UI changes), show `git status` + `git diff`, then stop. No commit, push or deploy until told.
+  Windows: use PowerShell syntax.
 
-## Branches: work on `main`
-
-- **`main` is the live branch.** Deployed 2026-10-04: `gh-pages` `f2bc21c` =
-  build of `2070e7c` (the `tgs-banner:move` message to the framing page; no
-  change to how the banner looks): live serves `main.4e891ae8.js`,
-  `main.4baeb156.css` (unchanged) and `206.966e2417.chunk.js`, and no `.map`
-  files. `prices.json` sits beside them, committed by the job, and survived
-  this deploy (`keep-prices`). Checked live in Chromium and WebKit, framed by
-  another page: 390x40 (phone pairs carousel) sent 3 messages in 19s, 5.7s
-  apart, from origin `https://tgs-game.github.io`; 834x40 (tablet row),
-  1035x24 and 1440x24 (row) sent none; League Spartan 400 + 600 loaded,
-  heights 40/40/24/24, no sideways scroll, no console errors.
-  History: 2026-10-02 (second deploy that day) `gh-pages` `1313112` = build of
-  `5b5b4a7` (48px gaps, row from 1014px at the caps; tablet row for every
-  768-1034px frame; re-measure on any size change, fixing the blank WebKit
-  banner): `main.60fe8ffe.js`, `main.4baeb156.css` and
-  `206.966e2417.chunk.js`; 2026-10-02 `gh-pages` `b2e4729` = build of `8874661` (tablet row of
-  four metals, text ink centred in every band): `main.c0e39b25.js`,
-  `main.67b3e266.css` and `206.966e2417.chunk.js`; 2026-09-25 `gh-pages` `a1ee8c4` = build of `a108275` (League
-  Spartan SemiBold text, Regular prices): `main.5ace8f70.js`,
-  `main.dfcd0993.css` and `206.966e2417.chunk.js`; 2026-09-24 `gh-pages` `49b61a7` = build of `389baf6` (prices with a
-  thousands comma): `main.5ace8f70.js`, `main.5b082651.css` and
-  `206.966e2417.chunk.js`; 2026-09-22 `gh-pages`
-  `be793fd` = build of `63657c4` (prices from the scheduled job, no API calls
-  in the browser): `main.9bccde13.js`, `main.f3ffac55.css` and
-  `206.966e2417.chunk.js`; 2026-09-18 `gh-pages` `eb71b14` =
-  build of `9abaeb7` (40px phone pairs): `main.fa2023fd.js`,
-  `main.22f1760a.css` and `453.df2d0003.chunk.js`; earlier 2026-09-18
-  `gh-pages` `1353be1` = build of `1fe617e` (one-metal phone layout;
-  `main.9740394e.js`, `main.2ffbd2cd.css`); 2026-09-10 `gh-pages`
-  `29c7c71` = build of `a290afe` (carousel; `main.02a3d7bd.js`,
-  `main.563b34a8.css`); 2025-04-01 `e4218a0` = build of `a994e4a`. Building
-  `master` does not reproduce any of these.
-- `main` has been the GitHub **default** branch since 2026-09-22 (needed: the
-  scheduled workflow only runs from the default branch). `master` is stale,
-  with hardcoded placeholder daily-change figures and the old API key in
-  `src/components/prices.js`.
-
-## Running locally
-
-```powershell
-npm ci            # install from lockfile (re-run after switching branches)
-npm run build     # production build to ./build; offline, touches nothing live
-npm start         # dev server on http://localhost:3000
-npm test          # jest (watch mode)
-```
-
-- Windows Server here has system animations off, so headless Chrome reports
-  `prefers-reduced-motion: reduce` (the fade, not the slide) unless you emulate
-  `no-preference`.
-- `npm start` and the built page make **no** metalpriceapi calls. They read
-  `/banner/prices.json`, which doesn't exist locally, so the banner stays an
-  empty strip. To see prices, put a test file in
-  `public/prices.json` (gitignored; `keep-prices` never publishes it), e.g. a
-  copy of the live one.
-- To test the job without the API, stub `fetch` (e.g. `node --import` a module
-  that replaces `globalThis.fetch`). Running it for real spends 1-2 calls.
-- `npm test`: `src/App.test.js` is untouched CRA boilerplate ("learn react") and
-  is expected to fail. Treat it as stale, not as a regression.
-- To check a build matches what's live, compare the `static/js/main.*.js` and
-  `static/css/main.*.css` filenames (content hashes) with
-  https://tgs-game.github.io/banner/asset-manifest.json.
-
-## Deployment (= production)
-
-- `npm run deploy` runs `predeploy` (`npm run build`, then
-  `scripts/keep-prices.mjs`, which does a `git fetch` and copies the live
-  `prices.json` into `build/`), then `gh-pages -d build` (`gh-pages` ^4 on
-  `main`), which **pushes the build to the `gh-pages` branch on origin**.
-- `.env` sets `GENERATE_SOURCEMAP=false` (not a secret), so no `.map` files are
-  published. GitHub Pages (legacy mode, source `gh-pages` /) serves it at
-  **https://tgs-game.github.io/banner/**. That is the live site.
-- Never run `npm run deploy` or push to `gh-pages` without explicit approval.
-- `homepage` in package.json is `https://tgs-game.github.io/banner/`, so asset
-  paths resolve to `/banner/`. The old URL `https://thegldstandard.github.io/banner/`
-  returns 404. thegoldstandard.com's iframe points at
-  `https://tgs-game.github.io/banner` (checked 2026-09-22), as does the site
-  rebuild in `thegoldstandard-main` / `-mobile` (`src/site.js` `tickerUrl`).
-- This machine has `core.autocrlf=true`, so files copied from `public/` (e.g.
-  `style.css`) get CRLF line endings in local builds. That doesn't reach the
-  live site: `gh-pages` commits through git, which converts them back to LF on
-  commit, so a deploy from here does not change `style.css`'s bytes (verified
-  on the 2026-09-18 deploy, `gh-pages` `1353be1`).
-- Not deployed on Railway. The folder is not `railway link`ed. Don't link it or
-  set Railway variables.
-
-## Environment variables & secrets
-
-- The banner reads **no environment variables**. `.env` only holds
-  `GENERATE_SOURCEMAP=false`.
-- The job reads `METALPRICE_API_KEY`, from the GitHub Actions repository secret of
-  that name. Never add it to `.env`, `REACT_APP_*` or any file: CRA would inline
-  it into the public bundle.
-- The **old** key was hardcoded in `src/components/prices.js` from `0f5fb8c`
-  (2025-02-25) until this change, and is still there on `master`. It is public in
-  git history, in every `gh-pages` commit, and in a saved copy of an old bundle in
-  `support-auvesta-v3/public/login-assets/` (dead code, but served). The fix is a
-  new key in the secret and deleting the old one; don't rewrite history.
-  - Never print, log, echo or copy any key into files, docs or messages.
-    `fetch-prices.mjs` never logs request URLs or response bodies (the URL
-    contains the key); keep it that way.
-- Report env vars and secrets only as "set / not set", never their values.
-
-## How to work in this repo (user's rules)
-
-1. **Investigate**: read the relevant code and confirm you're on `main`.
-2. **Build**: make the change.
-3. **Verify**: at minimum `npm run build` must succeed. Check it visually with
-   `npm start` when the UI changes (with a test `public/prices.json`).
-4. **Show the diff**: `git status` + `git diff`.
-5. **Stop.** Do not commit, push or deploy until the user explicitly says so.
-
-Before running anything, say whether it would touch a live service (the
-metalpriceapi quota, the `gh-pages` branch, GitHub Pages or the "Update prices"
-workflow). Never run the workflow without explicit approval.
-
-Environment: Windows. Use PowerShell syntax.
+## Current state and open items (12 Nov 2026)
+- Live: `gh-pages` = build of `2070e7c` (deployed 2026-10-04). Latest `main` commits (10 Nov) are the price job's
+  midnight grace and retries plus CLAUDE.md fixes; the job runs from `main`, so they are live.
+- 12 Nov: the watchdog change (the new thresholds above, plus `ops/test-price-watchdog.ps1`, 31/31 offline tests),
+  this shorter CLAUDE.md and `docs/HISTORY.md` were committed, pushed and re-installed on the VPS.
+- After any future watchdog change: re-run `ops\install-watchdog.ps1` (elevated) on the VPS.
+- Open: the old metalpriceapi key is still public in git history, `master`, old `gh-pages` builds and an old
+  bundle copy in the support site. It was rotated on 2026-10-22; check the old key is really revoked.
+- Open: prices show no "as of" time, so stale prices look live to visitors.
